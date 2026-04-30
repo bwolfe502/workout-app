@@ -8,7 +8,18 @@
   {{ format_session_label(sess) }}
   <span class="status status-{{ sess.status }}">{{ sess.status }}</span>
 </h1>
-<p class="muted">{{ sess.planned_date or '' }}</p>
+<p class="muted">
+  {{ sess.planned_date or '' }}
+  {% if sess.completed_at %}· completed {{ sess.completed_at[:10] }}{% endif %}
+</p>
+
+{% if sess.status in ('partial', 'extra') %}
+  <p>
+    <a class="btn btn-primary" href="{{ url_for('session_detail', session_id=sess.id, live=1) }}">
+      Continue logging
+    </a>
+  </p>
+{% endif %}
 
 {% if prescribed %}
 <table class="prescribed-vs-actual">
@@ -57,7 +68,7 @@
 {% if sess.narrative_md %}
   <section class="card">
     <h2>Notes</h2>
-    <pre class="narrative">{{ sess.narrative_md }}</pre>
+    <div class="narrative">{{ sess.narrative_md }}</div>
   </section>
 {% endif %}
 

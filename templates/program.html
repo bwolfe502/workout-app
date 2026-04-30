@@ -48,6 +48,7 @@
     <h2>
       Session {{ sess.day_number }}
       {% if sess.workout_letter %}— Workout {{ sess.workout_letter }}{% endif %}
+      {% if sess.day_number >= 10 %}<span class="status status-deload">deload</span>{% endif %}
       <span class="status status-{{ sess.status }}">{{ sess.status }}</span>
     </h2>
     <p class="muted">{{ sess.planned_date }}</p>

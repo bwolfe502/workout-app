@@ -16,6 +16,7 @@
   --status-extra: #4dd0e1;
   --status-planned: #607d8b;
   --status-in_progress: #4f9cff;
+  --status-deload: #ce93d8;
 }
 
 * { box-sizing: border-box; }
@@ -148,6 +149,7 @@ table.prescribed-vs-actual th, table.prescribed-vs-actual td {
 .status-extra       { color: var(--status-extra);       border-color: rgba(77, 208, 225, 0.4); }
 .status-planned     { color: var(--status-planned);     border-color: rgba(96, 125, 139, 0.4); }
 .status-in_progress { color: var(--status-in_progress); border-color: rgba(79, 156, 255, 0.4); }
+.status-deload      { color: var(--status-deload);      border-color: rgba(206, 147, 216, 0.4); }
 
 /* --- issues list --- */
 
@@ -164,14 +166,15 @@ ul.issues li:last-child { border-bottom: none; }
 
 /* --- narrative --- */
 
-pre.narrative {
+.narrative {
   white-space: pre-wrap;
   font-family: inherit;
   background: rgba(0,0,0,0.2);
   padding: 0.75rem;
   border-radius: 6px;
   overflow-x: auto;
-  font-size: 0.92em;
+  font-size: 0.95em;
+  line-height: 1.5;
 }
 
 /* --- session details --- */

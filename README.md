@@ -46,4 +46,7 @@ Open http://localhost:5000.
 
 ## Status
 
-Bootstrapped. Phase 1 (logger) in progress.
+**Phase 1 (logger) complete.** Seed importer reads the three source md
+files, mobile workout view logs sets via htmx with a rest timer, and
+the read-only program/sessions/detail pages match the source. Phase 2
+(metrics, issues, charts) is next.

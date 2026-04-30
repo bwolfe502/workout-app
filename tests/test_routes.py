@@ -103,3 +103,28 @@ def test_session_detail_shows_prescribed_and_actuals(client) -> None:
 def test_session_detail_404_on_missing(client) -> None:
     r = client.get("/session/9999")
     assert r.status_code == 404
+
+
+def test_partial_session_offers_continue_logging(client) -> None:
+    """Session 1 is partial from the seed; the read-only view should
+    expose a 'Continue logging' button that switches to live view."""
+    r = client.get("/session/1")
+    body = r.get_data(as_text=True)
+    assert "Continue logging" in body
+    # The link goes back to the same path with ?live=1
+    assert "live=1" in body
+
+
+def test_live_query_param_forces_live_view_on_partial(client) -> None:
+    r = client.get("/session/1?live=1")
+    body = r.get_data(as_text=True)
+    # Live view has the htmx form; read-only does not.
+    assert "hx-post" in body
+    assert "Log set #" in body
+
+
+def test_program_marks_deload_sessions(client) -> None:
+    r = client.get("/program")
+    body = r.get_data(as_text=True)
+    # Sessions 10-12 are deload — should have the deload badge.
+    assert "status-deload" in body

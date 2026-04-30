@@ -85,15 +85,17 @@ def create_app(config: dict | None = None) -> Flask:
             abort(404)
         prescribed = queries.prescribed_for_session(conn, session_id)
         sets_by_prescribed = queries.sets_for_session(conn, session_id)
-        if sess["status"] in ("planned", "in_progress"):
-            return render_template(
-                "session_live.html",
-                sess=sess,
-                prescribed=prescribed,
-                sets_by_prescribed=sets_by_prescribed,
-            )
+        # Routing: planned / in_progress → live view by default. Partial
+        # sessions stay read-only unless the user opts in with ?live=1
+        # ("Continue logging" button on the detail view), so accidental
+        # taps on a finished day don't create surprise set rows.
+        live_opt_in = request.args.get("live") == "1"
+        is_live = sess["status"] in ("planned", "in_progress") or (
+            live_opt_in and sess["status"] in ("partial", "extra")
+        )
+        template = "session_live.html" if is_live else "session_detail.html"
         return render_template(
-            "session_detail.html",
+            template,
             sess=sess,
             prescribed=prescribed,
             sets_by_prescribed=sets_by_prescribed,

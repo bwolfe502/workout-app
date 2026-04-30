@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Issues — workout-app{% endblock %}
+
+{% block content %}
+<h1>Issues</h1>
+<p class="muted">Pain flags, equipment swaps, things to monitor across sessions.</p>
+
+<details class="card">
+  <summary><strong>Add new issue</strong></summary>
+  <form method="post" action="{{ url_for('issues_create') }}" class="issue-form">
+    <label>What's going on?
+      <input name="item" required placeholder="e.g. Right elbow tweak on triceps pushdown">
+    </label>
+    <label>Status
+      <input name="status" list="status-options" value="yellow" required>
+      <datalist id="status-options">
+        <option value="yellow">
+        <option value="red">
+        <option value="monitoring">
+        <option value="confirmed">
+        <option value="permanent">
+      </datalist>
+    </label>
+    <label>Action / plan
+      <textarea name="action" rows="2" placeholder="What are you doing about it?"></textarea>
+    </label>
+    <label>Severity (optional)
+      <input name="severity" placeholder="e.g. 2/10, low, high">
+    </label>
+    <p><button class="btn btn-primary" type="submit">Open issue</button></p>
+  </form>
+</details>
+
+<section class="card">
+  <h2>Open ({{ open_issues|length }})</h2>
+  {% if open_issues %}
+    <ul class="issues">
+      {% for i in open_issues %}
+        <li>
+          <div class="issue-head">
+            <strong>{{ i.item }}</strong>
+            {% if i.status %}<span class="status">{{ i.status }}</span>{% endif %}
+            {% if i.severity %}<span class="muted">· {{ i.severity }}</span>{% endif %}
+          </div>
+          {% if i.action %}<div class="muted">{{ i.action }}</div>{% endif %}
+          <div class="muted issue-foot">
+            opened {{ i.opened_at }}
+            <form method="post" action="{{ url_for('issues_close', issue_id=i.id) }}" style="display:inline">
+              <button class="btn btn-secondary" type="submit">Close</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No open issues. Nice.</p>
+  {% endif %}
+</section>
+
+{% if closed_issues %}
+  <details class="card">
+    <summary><strong>Closed</strong> ({{ closed_issues|length }})</summary>
+    <ul class="issues">
+      {% for i in closed_issues %}
+        <li class="closed">
+          <div class="issue-head">
+            <strong>{{ i.item }}</strong>
+            {% if i.status %}<span class="status">{{ i.status }}</span>{% endif %}
+          </div>
+          {% if i.action %}<div class="muted">{{ i.action }}</div>{% endif %}
+          <div class="muted issue-foot">
+            opened {{ i.opened_at }} · closed {{ i.closed_at }}
+            <form method="post" action="{{ url_for('issues_reopen', issue_id=i.id) }}" style="display:inline">
+              <button class="btn btn-secondary" type="submit">Reopen</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </details>
+{% endif %}
+{% endblock %}

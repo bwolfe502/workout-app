@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 
@@ -144,6 +144,59 @@ def create_app(config: dict | None = None) -> Flask:
         )
         conn.commit()
         return redirect(url_for("home"))
+
+    # ---- issues ----------------------------------------------------------
+
+    @app.get("/issues")
+    def issues_list():
+        conn = db.get_conn()
+        return render_template(
+            "issues.html",
+            open_issues=queries.open_issues(conn),
+            closed_issues=queries.closed_issues(conn),
+        )
+
+    @app.post("/issues")
+    def issues_create():
+        item = (request.form.get("item") or "").strip()
+        if not item:
+            return redirect(url_for("issues_list"))
+        status = (request.form.get("status") or "yellow").strip()
+        action = (request.form.get("action") or "").strip() or None
+        severity = (request.form.get("severity") or "").strip() or None
+        conn = db.get_conn()
+        conn.execute(
+            "INSERT INTO issues (opened_at, item, status, action, severity) VALUES (?, ?, ?, ?, ?)",
+            (date.today().isoformat(), item, status, action, severity),
+        )
+        conn.commit()
+        return redirect(url_for("issues_list"))
+
+    @app.post("/issues/<int:issue_id>/close")
+    def issues_close(issue_id: int):
+        conn = db.get_conn()
+        issue = queries.issue_by_id(conn, issue_id)
+        if issue is None:
+            abort(404)
+        conn.execute(
+            "UPDATE issues SET closed_at = ? WHERE id = ?",
+            (date.today().isoformat(), issue_id),
+        )
+        conn.commit()
+        return redirect(url_for("issues_list"))
+
+    @app.post("/issues/<int:issue_id>/reopen")
+    def issues_reopen(issue_id: int):
+        conn = db.get_conn()
+        issue = queries.issue_by_id(conn, issue_id)
+        if issue is None:
+            abort(404)
+        conn.execute(
+            "UPDATE issues SET closed_at = NULL WHERE id = ?",
+            (issue_id,),
+        )
+        conn.commit()
+        return redirect(url_for("issues_list"))
 
     @app.get("/healthz")
     def healthz():

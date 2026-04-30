@@ -186,6 +186,33 @@ details.card > summary {
 details.card > summary::-webkit-details-marker { display: none; }
 details.card[open] > summary { margin-bottom: 0.75rem; }
 
+/* --- issues page --- */
+
+.issue-form label {
+  display: block;
+  margin: 0.6rem 0;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+.issue-form input[type="text"],
+.issue-form input:not([type]),
+.issue-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  background: rgba(0,0,0,0.2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+ul.issues li .issue-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+ul.issues li .issue-foot { margin-top: 0.4rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+ul.issues li.closed { opacity: 0.7; }
+
 /* --- live session view --- */
 
 .exercise-block {

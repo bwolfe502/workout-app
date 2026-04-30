@@ -111,9 +111,25 @@ def sets_for_session(conn: sqlite3.Connection, session_id: int) -> dict[int, lis
 def open_issues(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return list(conn.execute(
         """
-        SELECT * FROM issues WHERE closed_at IS NULL ORDER BY opened_at DESC
+        SELECT * FROM issues WHERE closed_at IS NULL ORDER BY opened_at DESC, id DESC
         """
     ))
+
+
+def closed_issues(conn: sqlite3.Connection, limit: int = 50) -> list[sqlite3.Row]:
+    return list(conn.execute(
+        """
+        SELECT * FROM issues
+         WHERE closed_at IS NOT NULL
+         ORDER BY closed_at DESC, id DESC
+         LIMIT ?
+        """,
+        (limit,),
+    ))
+
+
+def issue_by_id(conn: sqlite3.Connection, issue_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM issues WHERE id = ?", (issue_id,)).fetchone()
 
 
 def revisions(conn: sqlite3.Connection, mesocycle_id: int) -> list[sqlite3.Row]:

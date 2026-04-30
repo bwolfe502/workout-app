@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Program — workout-app{% endblock %}
+
+{% block content %}
+<h1>{{ mesocycle.name }}</h1>
+<p class="muted">
+  Started {{ mesocycle.start_date }}.
+  DB weights per hand · BB weights total · BW = bodyweight.
+</p>
+
+{% if revisions %}
+  <details class="card">
+    <summary><strong>Revisions log</strong> ({{ revisions|length }})</summary>
+    <table class="compact">
+      <thead><tr><th>Date</th><th>Change</th><th>Reason</th></tr></thead>
+      <tbody>
+      {% for r in revisions %}
+        <tr><td>{{ r.date }}</td><td>{{ r.change }}</td><td>{{ r.reason }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+{% endif %}
+
+{% if workout_c %}
+  <section class="card">
+    <h2>Workout C — Optional Swap</h2>
+    <p class="muted">Use instead of A or B when fried, short on time, or joints feel off. Same prescription every time.</p>
+    <table class="prescribed compact">
+      <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>RIR</th></tr></thead>
+      <tbody>
+      {% for r in workout_c %}
+        <tr>
+          <td>{{ r.exercise_name }}</td>
+          <td>{{ r.sets }}</td>
+          <td>{{ r.reps }}</td>
+          <td>{% if r.weight_lb is none %}BW{% else %}{{ '%g' % r.weight_lb }} lb{% endif %}</td>
+          <td>{{ r.rir if r.rir is not none else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+
+{% for sess in sessions %}
+  <section class="card session" id="session-{{ sess.day_number }}">
+    <h2>
+      Session {{ sess.day_number }}
+      {% if sess.workout_letter %}— Workout {{ sess.workout_letter }}{% endif %}
+      <span class="status status-{{ sess.status }}">{{ sess.status }}</span>
+    </h2>
+    <p class="muted">{{ sess.planned_date }}</p>
+    {% set prx_rows = prescribed_by_session.get(sess.id, []) %}
+    {% if prx_rows %}
+      <table class="prescribed compact">
+        <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>RIR</th></tr></thead>
+        <tbody>
+        {% for p in prx_rows %}
+          <tr>
+            <td>{{ p.exercise_name }}</td>
+            <td>{{ p.sets_planned }}</td>
+            <td>{{ format_reps(p) }}</td>
+            <td>{{ format_weight(p) }}</td>
+            <td>{{ p.rir_target if p.rir_target is not none else '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No prescription on file.</p>
+    {% endif %}
+    <p>
+      <a href="{{ url_for('session_detail', session_id=sess.id) }}">Open session →</a>
+    </p>
+  </section>
+{% endfor %}
+{% endblock %}

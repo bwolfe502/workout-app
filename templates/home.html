@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Home — workout-app{% endblock %}
+
+{% block content %}
+<h1>{{ mesocycle.name if mesocycle else 'No active mesocycle' }}</h1>
+
+{% if next_sess %}
+  <section class="card next-session">
+    <h2>Next session</h2>
+    <p class="session-label">
+      Session {{ next_sess.day_number }} — Workout {{ next_sess.workout_letter }}
+      {% if next_sess.planned_date %}<span class="muted">· {{ next_sess.planned_date }}</span>{% endif %}
+    </p>
+    {% if next_prescribed %}
+      <table class="prescribed compact">
+        <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>RIR</th></tr></thead>
+        <tbody>
+        {% for p in next_prescribed %}
+          <tr>
+            <td>{{ p.exercise_name }}</td>
+            <td>{{ p.sets_planned }}</td>
+            <td>{{ format_reps(p) }}</td>
+            <td>{{ format_weight(p) }}</td>
+            <td>{{ p.rir_target if p.rir_target is not none else '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    <p>
+      <a class="btn btn-primary" href="{{ url_for('session_detail', session_id=next_sess.id) }}">Start session</a>
+    </p>
+  </section>
+{% else %}
+  <section class="card">
+    <h2>All sessions complete</h2>
+    <p class="muted">No upcoming session in this mesocycle.</p>
+  </section>
+{% endif %}
+
+<section class="card">
+  <h2>Open issues</h2>
+  {% if issues %}
+    <ul class="issues">
+      {% for i in issues %}
+        <li><strong>{{ i.item }}</strong> — <span class="status">{{ i.status }}</span>
+          {% if i.action %}<div class="muted">{{ i.action }}</div>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No open issues.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Recent metrics</h2>
+  {% if weigh_in %}
+    <p>{{ weigh_in.date }}: {{ weigh_in.weight_lb }} lb{% if weigh_in.waist_in %}, waist {{ weigh_in.waist_in }} in{% endif %}</p>
+  {% else %}
+    <p class="muted">No weigh-ins yet — Phase 2 will add the quick-log here.</p>
+  {% endif %}
+</section>
+{% endblock %}

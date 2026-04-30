@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Sessions — workout-app{% endblock %}
+
+{% block content %}
+<h1>Sessions</h1>
+
+<table class="sessions-list">
+  <thead>
+    <tr><th>#</th><th>Date</th><th>Workout</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    {% for sess in sessions %}
+      <tr>
+        <td>
+          {% if sess.day_number is not none %}
+            <a href="{{ url_for('session_detail', session_id=sess.id) }}">{{ sess.day_number }}</a>
+          {% else %}
+            <a href="{{ url_for('session_detail', session_id=sess.id) }}">·</a>
+          {% endif %}
+        </td>
+        <td>{{ sess.planned_date or '—' }}</td>
+        <td>{{ sess.workout_letter or '—' }}</td>
+        <td><span class="status status-{{ sess.status }}">{{ sess.status }}</span></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ format_session_label(sess) }} — workout-app{% endblock %}
+
+{% block content %}
+<p><a href="{{ url_for('sessions') }}">← All sessions</a></p>
+
+<h1>
+  {{ format_session_label(sess) }}
+  <span class="status status-{{ sess.status }}">{{ sess.status }}</span>
+</h1>
+<p class="muted">{{ sess.planned_date or '' }}</p>
+
+{% if prescribed %}
+<table class="prescribed-vs-actual">
+  <thead>
+    <tr>
+      <th>Exercise</th>
+      <th>Prescribed</th>
+      <th>Actual sets</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in prescribed %}
+      <tr>
+        <td>{{ p.exercise_name }}</td>
+        <td>
+          {{ p.sets_planned }} × {{ format_reps(p) }} @ {{ format_weight(p) }}
+          {% if p.rir_target is not none %}<span class="muted">RIR {{ p.rir_target }}</span>{% endif %}
+        </td>
+        <td>
+          {% set rows = sets_by_prescribed.get(p.prescribed_id, []) %}
+          {% if rows %}
+            {% for r in rows %}
+              {% if r.status == 'completed' %}
+                <span class="set">
+                  {{ r.reps_actual or '—' }} ×
+                  {% if r.weight_actual is not none %}{{ '%g' % r.weight_actual }} lb{% else %}—{% endif %}
+                  {% if r.rir_actual is not none %}<span class="muted">RIR {{ r.rir_actual }}</span>{% endif %}
+                </span>
+              {% else %}
+                <span class="set status-{{ r.status }}">{{ r.status }}</span>
+              {% endif %}
+              {% if not loop.last %} · {% endif %}
+            {% endfor %}
+          {% else %}
+            <span class="muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="muted">No exercises on file.</p>
+{% endif %}
+
+{% if sess.narrative_md %}
+  <section class="card">
+    <h2>Notes</h2>
+    <pre class="narrative">{{ sess.narrative_md }}</pre>
+  </section>
+{% endif %}
+
+{% if sess.hevy_url %}
+  <p class="muted">Original Hevy log: <a href="https://{{ sess.hevy_url }}" target="_blank" rel="noopener">{{ sess.hevy_url }}</a></p>
+{% endif %}
+{% endblock %}

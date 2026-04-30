@@ -9,6 +9,7 @@ from flask import Flask, abort, redirect, render_template, request, url_for
 
 import db
 import queries
+import volume
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -144,6 +145,40 @@ def create_app(config: dict | None = None) -> Flask:
         )
         conn.commit()
         return redirect(url_for("home"))
+
+    # ---- stats -----------------------------------------------------------
+
+    @app.get("/stats")
+    def stats():
+        conn = db.get_conn()
+        meso = queries.active_mesocycle(conn)
+        if meso is None:
+            return render_template("stats.html", mesocycle=None,
+                                   volume={}, strength=[], strength_exercise=None,
+                                   trained_exercises=[], bodyweight=[],
+                                   pain_by_week={}, volume_targets_low={},
+                                   volume_targets_high={})
+        meso_id = meso["id"]
+        trained = volume.trained_exercises(conn, meso_id)
+        # Pick exercise for strength chart from query string, else first lift.
+        ex_id = request.args.get("exercise_id", type=int)
+        if not ex_id and trained:
+            ex_id = trained[0]["id"]
+        strength = volume.strength_trend(conn, ex_id, meso_id) if ex_id else []
+        chosen_ex = next((e for e in trained if e["id"] == ex_id), None)
+
+        return render_template(
+            "stats.html",
+            mesocycle=meso,
+            volume=volume.volume_by_muscle_week(conn, meso_id),
+            strength=strength,
+            strength_exercise=chosen_ex,
+            trained_exercises=trained,
+            bodyweight=volume.bodyweight_trend(conn),
+            pain_by_week=volume.pain_by_week(conn, meso_id),
+            volume_targets_low=volume.VOLUME_TARGETS_LOW,
+            volume_targets_high=volume.VOLUME_TARGETS_HIGH,
+        )
 
     # ---- metrics ---------------------------------------------------------
 

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Stats — workout-app{% endblock %}
+
+{% block content %}
+<h1>Stats</h1>
+
+{% if not mesocycle %}
+  <p class="muted">No active mesocycle.</p>
+{% else %}
+
+<section class="card">
+  <h2>Volume per muscle / week</h2>
+  <p class="muted">Hard sets per week, by muscle. Phase-1 targets in <em>trainingprogram.md §6</em>.</p>
+  {% if volume %}
+    <canvas id="chart-volume" height="280"></canvas>
+  {% else %}
+    <p class="muted">No completed sets yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Strength trend</h2>
+  <form method="get" action="{{ url_for('stats') }}">
+    <label for="exercise_id" class="muted">Exercise:</label>
+    <select id="exercise_id" name="exercise_id" onchange="this.form.submit()">
+      {% for e in trained_exercises %}
+        <option value="{{ e.id }}" {% if strength_exercise and strength_exercise.id == e.id %}selected{% endif %}>
+          {{ e.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+  {% if strength %}
+    <p class="muted">Top set per session for <strong>{{ strength_exercise.name }}</strong>. Estimated 1RM uses Epley (weight × (1 + reps/30)).</p>
+    <canvas id="chart-strength" height="260"></canvas>
+  {% else %}
+    <p class="muted">No completed sets for this exercise yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Bodyweight + waist</h2>
+  {% if bodyweight %}
+    <canvas id="chart-bodyweight" height="240"></canvas>
+  {% else %}
+    <p class="muted">No weigh-ins yet. <a href="{{ url_for('metrics') }}">Log one →</a></p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Pain / issue frequency</h2>
+  {% if pain_by_week %}
+    <p class="muted">Issues opened per week.</p>
+    <canvas id="chart-pain" height="220"></canvas>
+  {% else %}
+    <p class="muted">No issues opened during this mesocycle.</p>
+  {% endif %}
+</section>
+
+<script>
+  // Hand the chart payloads down via JSON inlined into the page. Defer to
+  // the after-DOM-ready hook because Chart.js itself loads with `defer`.
+  window.__statsData = {
+    volume: {{ volume|tojson }},
+    targets_low: {{ volume_targets_low|tojson }},
+    targets_high: {{ volume_targets_high|tojson }},
+    strength: {{ strength|tojson }},
+    bodyweight: {{ bodyweight|tojson }},
+    pain: {{ pain_by_week|tojson }},
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js" defer></script>
+<script src="{{ url_for('static', filename='stats.js') }}" defer></script>
+
+{% endif %}
+{% endblock %}

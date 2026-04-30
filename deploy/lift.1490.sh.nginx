@@ -1,0 +1,51 @@
+server {
+    listen 80;
+    server_name lift.1490.sh;
+
+    # certbot rewrites this to a 301 → https after the first cert issue.
+    # In the meantime, serve the ACME challenge straight through.
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 200 "lift.1490.sh — TLS bootstrap, run certbot --nginx -d lift.1490.sh\n";
+        default_type text/plain;
+    }
+}
+
+# After `certbot --nginx -d lift.1490.sh` runs, certbot rewrites the http
+# server above to redirect to https and adds the SSL block below.
+# This file is the pre-certbot starting point; certbot's edits land in the
+# live /etc/nginx/sites-available/lift.1490.sh on the droplet.
+#
+# The expected post-certbot https server block is:
+#
+# server {
+#     listen 443 ssl;
+#     server_name lift.1490.sh;
+#
+#     ssl_certificate     /etc/letsencrypt/live/lift.1490.sh/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/lift.1490.sh/privkey.pem;
+#     include /etc/letsencrypt/options-ssl-nginx.conf;
+#     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+#
+#     # Larger bodies are unlikely (no uploads in Phase 4) but be friendly to
+#     # paste-in textareas on /claude/apply which can be ~80 KB.
+#     client_max_body_size 256k;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:8092;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_read_timeout 60s;
+#     }
+#
+#     location /static/ {
+#         alias /opt/workout-app/static/;
+#         expires 1h;
+#         access_log off;
+#     }
+# }

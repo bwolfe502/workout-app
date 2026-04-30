@@ -1,0 +1,29 @@
+[Unit]
+Description=Workout app (lift.1490.sh)
+After=network.target
+
+[Service]
+Type=simple
+User=workout
+WorkingDirectory=/opt/workout-app
+EnvironmentFile=/opt/workout-app/.env
+ExecStart=/opt/workout-app/venv/bin/gunicorn \
+    --bind 127.0.0.1:8092 \
+    --workers 2 \
+    --access-logfile - \
+    --error-logfile - \
+    app:app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Lock the service down — same parts of /etc / /usr / /var the rest of the
+# droplet uses, but no random write access elsewhere.
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

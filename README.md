@@ -44,9 +44,34 @@ flask --app app run --debug
 
 Open http://localhost:5000.
 
+## Deploy (Phase 4 — `lift.1490.sh`)
+
+First-time install on the droplet:
+
+```bash
+ssh root@104.236.8.9
+git clone https://github.com/bwolfe502/workout-app.git /opt/workout-app
+bash /opt/workout-app/deploy/deploy.sh first-install
+# follow the printed first-login URL (contains the generated token)
+certbot --nginx -d lift.1490.sh
+```
+
+Updates:
+
+```bash
+ssh root@104.236.8.9 'cd /opt/workout-app && git pull && bash deploy/deploy.sh'
+```
+
+The systemd unit (`deploy/workout-app.service`) runs gunicorn bound to
+`127.0.0.1:8092` as user `workout`; nginx (`deploy/lift.1490.sh.nginx`)
+proxies https → that port. The URL-token gate (`WORKOUT_TOKEN` env in
+`/opt/workout-app/.env`) protects every path except `/healthz`.
+`deploy/backup.sh` runs nightly via `/etc/cron.d/workout-app-backup`,
+keeping 30 days of gzipped SQLite snapshots in `/opt/workout-app/backups`.
+
 ## Status
 
-**Phase 1 (logger) complete.** Seed importer reads the three source md
-files, mobile workout view logs sets via htmx with a rest timer, and
-the read-only program/sessions/detail pages match the source. Phase 2
-(metrics, issues, charts) is next.
+**Phases 1–4 complete.** Seed importer + mobile logger + metrics +
+issues + stats charts + Claude paste-in/paste-out loop with diff
+preview, audit log, and rollback. Deployed at
+[lift.1490.sh](https://lift.1490.sh).

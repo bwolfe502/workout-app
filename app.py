@@ -16,9 +16,11 @@ import db
 import queries
 import volume
 
-# Paths exempt from the URL-token gate. /healthz so the systemd watchdog and
-# any uptime check can probe without a secret.
-_PUBLIC_PATHS: frozenset[str] = frozenset({"/healthz"})
+# Paths exempt from the URL-token gate.
+#   /healthz    — systemd watchdog / uptime probes
+#   /auth/check — the gate's own check endpoint, used by nginx auth_request
+#                 to delegate auth for sibling subdomains (ops.1490.sh).
+_PUBLIC_PATHS: frozenset[str] = frozenset({"/healthz", "/auth/check"})
 _AUTH_COOKIE = "workout_auth"
 _COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # one year
 
@@ -28,6 +30,12 @@ def create_app(config: dict | None = None) -> Flask:
     # AUTH_TOKEN — when set, every request needs ?token=… (one-shot, then a
     # cookie carries it). Empty / unset → no gate, useful in local dev.
     app.config.setdefault("AUTH_TOKEN", os.environ.get("WORKOUT_TOKEN", ""))
+    # AUTH_COOKIE_DOMAIN — set to a parent domain (e.g. ".1490.sh") to share
+    # the auth cookie across sibling subdomains. Unset → host-only cookie.
+    app.config.setdefault(
+        "AUTH_COOKIE_DOMAIN",
+        os.environ.get("WORKOUT_COOKIE_DOMAIN", "") or None,
+    )
     if config:
         app.config.update(config)
 
@@ -459,17 +467,35 @@ def _register_token_gate(app: Flask) -> None:
         return render_template("login.html", next_url=next_url,
                                error="Wrong password."), 401
 
+    @app.get("/auth/check")
+    def auth_check():
+        """nginx auth_request endpoint for sibling-subdomain protection.
+
+        Returns 204 if the workout_auth cookie matches AUTH_TOKEN (or if
+        the gate is disabled), 401 otherwise. No body — nginx auth_request
+        only inspects the status code.
+        """
+        expected = app.config.get("AUTH_TOKEN") or ""
+        if not expected:
+            return "", 204
+        if request.cookies.get(_AUTH_COOKIE) == expected:
+            return "", 204
+        return "", 401
+
 
 def _set_auth_cookie_and_redirect(target: str, token: str):
+    from flask import current_app
     resp = make_response(redirect(target))
-    resp.set_cookie(
-        _AUTH_COOKIE,
-        token,
+    kwargs: dict = dict(
         max_age=_COOKIE_MAX_AGE,
         httponly=True,
         secure=request.is_secure,
         samesite="Lax",
     )
+    domain = current_app.config.get("AUTH_COOKIE_DOMAIN")
+    if domain:
+        kwargs["domain"] = domain
+    resp.set_cookie(_AUTH_COOKIE, token, **kwargs)
     return resp
 
 

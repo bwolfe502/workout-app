@@ -154,3 +154,58 @@ def test_proxy_fix_trusts_forwarded_proto(gated_client) -> None:
     )
     cookie = r.headers.get("Set-Cookie", "")
     assert "Secure" in cookie
+
+
+def test_auth_check_204_with_valid_cookie(gated_client) -> None:
+    """nginx auth_request endpoint returns 204 when the cookie is valid."""
+    gated_client.set_cookie("workout_auth", TOKEN, domain="localhost")
+    r = gated_client.get("/auth/check")
+    assert r.status_code == 204
+    assert r.get_data(as_text=True) == ""
+
+
+def test_auth_check_401_without_cookie(gated_client) -> None:
+    r = gated_client.get("/auth/check")
+    assert r.status_code == 401
+
+
+def test_auth_check_401_with_wrong_cookie(gated_client) -> None:
+    gated_client.set_cookie("workout_auth", "wrong-value", domain="localhost")
+    r = gated_client.get("/auth/check")
+    assert r.status_code == 401
+
+
+def test_auth_check_204_when_gate_disabled(open_client) -> None:
+    """If AUTH_TOKEN is empty, /auth/check always passes."""
+    r = open_client.get("/auth/check")
+    assert r.status_code == 204
+
+
+def test_parent_domain_cookie(tmp_path) -> None:
+    """When AUTH_COOKIE_DOMAIN is set, the cookie carries that Domain
+    attribute so it's shared across sibling subdomains."""
+    db_path = tmp_path / "gym.db"
+    seed.main([
+        "--source-dir", str(FIXTURES),
+        "--db", str(db_path),
+        "--reset",
+    ])
+    flask_app = app_module.create_app({
+        "DATABASE": str(db_path),
+        "TESTING": True,
+        "AUTH_TOKEN": TOKEN,
+        "AUTH_COOKIE_DOMAIN": ".1490.sh",
+    })
+    with flask_app.test_client() as c:
+        r = c.post("/login", data={"password": TOKEN, "next": "/"})
+        cookie = r.headers.get("Set-Cookie", "")
+        # Werkzeug normalises leading dots; modern RFC 6265 cookies allow
+        # subdomain sharing on any non-empty Domain attribute.
+        assert "Domain=1490.sh" in cookie or "Domain=.1490.sh" in cookie
+
+
+def test_no_domain_when_not_configured(gated_client) -> None:
+    """Default behavior — no Domain attribute → host-only cookie."""
+    r = gated_client.post("/login", data={"password": TOKEN, "next": "/"})
+    cookie = r.headers.get("Set-Cookie", "")
+    assert "Domain=" not in cookie

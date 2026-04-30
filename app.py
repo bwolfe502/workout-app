@@ -37,6 +37,7 @@ def create_app(config: dict | None = None) -> Flask:
 
     db.init_app(app)
     _register_token_gate(app)
+    _register_error_handlers(app)
 
     # Expose template helpers without forcing every route to pass them.
     app.jinja_env.globals.update(
@@ -436,6 +437,21 @@ def _register_token_gate(app: Flask) -> None:
             )
             return resp
         abort(401)
+
+
+# ---- error pages ----------------------------------------------------------
+
+
+def _register_error_handlers(app: Flask) -> None:
+    """Friendlier 401 page than Werkzeug's stock 'credentials' copy.
+
+    Doesn't leak the token (anyone on the internet hits this); just tells the
+    user what they need so they can paste it from their notes / dev's .env.
+    """
+
+    @app.errorhandler(401)
+    def _unauthorized(_e):
+        return render_template("401.html"), 401
 
 
 # ---- helpers --------------------------------------------------------------

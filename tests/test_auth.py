@@ -56,6 +56,17 @@ def test_no_token_returns_401(gated_client) -> None:
     assert r.status_code == 401
 
 
+def test_401_page_uses_custom_template(gated_client) -> None:
+    r = gated_client.get("/")
+    body = r.get_data(as_text=True)
+    # Friendly copy that explains the token URL pattern, not Werkzeug's
+    # stock 'credentials/password' page.
+    assert "Locked" in body
+    assert "?token=" in body
+    # Don't leak the actual token value into the 401 body.
+    assert TOKEN not in body
+
+
 def test_wrong_token_returns_401(gated_client) -> None:
     r = gated_client.get("/?token=nope")
     assert r.status_code == 401

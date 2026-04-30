@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 
+import claude_bundle
 import db
 import queries
 import volume
@@ -145,6 +146,23 @@ def create_app(config: dict | None = None) -> Flask:
         )
         conn.commit()
         return redirect(url_for("home"))
+
+    # ---- claude loop -----------------------------------------------------
+
+    @app.get("/claude")
+    def claude_review():
+        conn = db.get_conn()
+        meso = queries.active_mesocycle(conn)
+        trigger = request.args.get("trigger") or (
+            claude_bundle.default_trigger(conn, meso["id"]) if meso else ""
+        )
+        bundle = claude_bundle.build_bundle(conn, meso["id"], trigger) if meso else ""
+        return render_template(
+            "claude.html",
+            bundle=bundle,
+            trigger=trigger,
+            mesocycle=meso,
+        )
 
     # ---- stats -----------------------------------------------------------
 

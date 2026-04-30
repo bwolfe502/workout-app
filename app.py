@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
-from flask import Flask, abort, render_template
+from flask import Flask, abort, redirect, render_template, request, url_for
 
 import db
 import queries
@@ -22,6 +23,8 @@ def create_app(config: dict | None = None) -> Flask:
         format_reps=queries.format_reps,
         format_session_label=queries.format_session_label,
     )
+
+    # ---- read pages -------------------------------------------------------
 
     @app.get("/")
     def home():
@@ -52,7 +55,6 @@ def create_app(config: dict | None = None) -> Flask:
         prescribed_by_session: dict[int, list] = {}
         for s in sessions:
             prescribed_by_session[s["id"]] = queries.prescribed_for_session(conn, s["id"])
-        # Workout C template
         wc_row = conn.execute(
             "SELECT prescription_json FROM workout_templates WHERE letter = 'C'"
         ).fetchone()
@@ -73,6 +75,8 @@ def create_app(config: dict | None = None) -> Flask:
         rows = queries.all_sessions(conn, meso["id"]) if meso else []
         return render_template("sessions.html", sessions=rows)
 
+    # ---- live + read-only session detail ---------------------------------
+
     @app.get("/session/<int:session_id>")
     def session_detail(session_id: int):
         conn = db.get_conn()
@@ -81,6 +85,13 @@ def create_app(config: dict | None = None) -> Flask:
             abort(404)
         prescribed = queries.prescribed_for_session(conn, session_id)
         sets_by_prescribed = queries.sets_for_session(conn, session_id)
+        if sess["status"] in ("planned", "in_progress"):
+            return render_template(
+                "session_live.html",
+                sess=sess,
+                prescribed=prescribed,
+                sets_by_prescribed=sets_by_prescribed,
+            )
         return render_template(
             "session_detail.html",
             sess=sess,
@@ -88,11 +99,181 @@ def create_app(config: dict | None = None) -> Flask:
             sets_by_prescribed=sets_by_prescribed,
         )
 
+    # ---- htmx mutations on the live view ---------------------------------
+
+    @app.post("/session/<int:session_id>/exercise/<int:prescribed_id>/set")
+    def log_set(session_id: int, prescribed_id: int):
+        return _swap_after_mutation(
+            session_id, prescribed_id, _do_log_set, just_logged=True
+        )
+
+    @app.post("/session/<int:session_id>/exercise/<int:prescribed_id>/skip")
+    def skip_exercise(session_id: int, prescribed_id: int):
+        return _swap_after_mutation(
+            session_id, prescribed_id, lambda c, p: _do_marker(c, p, "skipped")
+        )
+
+    @app.post("/session/<int:session_id>/exercise/<int:prescribed_id>/defer")
+    def defer_exercise(session_id: int, prescribed_id: int):
+        return _swap_after_mutation(
+            session_id, prescribed_id, lambda c, p: _do_marker(c, p, "deferred")
+        )
+
+    @app.post("/session/<int:session_id>/finish")
+    def finish_session(session_id: int):
+        conn = db.get_conn()
+        sess = queries.session_by_id(conn, session_id)
+        if sess is None:
+            abort(404)
+        narrative = request.form.get("narrative", "").strip()
+        # Status: completed if every prescribed exercise has a non-skipped/
+        # deferred marker or at least one completed set; partial otherwise.
+        prescribed = queries.prescribed_for_session(conn, session_id)
+        sets_by_prescribed = queries.sets_for_session(conn, session_id)
+        status = _classify_completion(prescribed, sets_by_prescribed)
+        conn.execute(
+            """
+            UPDATE sessions
+               SET completed_at = ?, status = ?, narrative_md = ?
+             WHERE id = ?
+            """,
+            (datetime.now().isoformat(timespec="seconds"), status,
+             narrative or None, session_id),
+        )
+        conn.commit()
+        return redirect(url_for("home"))
+
     @app.get("/healthz")
     def healthz():
         return {"ok": True}, 200
 
     return app
+
+
+# ---- helpers --------------------------------------------------------------
+
+
+def _swap_after_mutation(session_id, prescribed_id, action, *, just_logged=False):
+    conn = db.get_conn()
+    sess = queries.session_by_id(conn, session_id)
+    if sess is None:
+        abort(404)
+    prescribed = _prescribed_by_id(conn, prescribed_id)
+    if prescribed is None or prescribed["session_id"] != session_id:
+        abort(404)
+    # Lazy transition: planned → in_progress on first action.
+    if sess["status"] == "planned":
+        conn.execute(
+            "UPDATE sessions SET status = 'in_progress' WHERE id = ?",
+            (session_id,),
+        )
+    action(conn, prescribed_id)
+    conn.commit()
+    # Re-fetch + re-render the exercise block partial.
+    refreshed = _prescribed_for_block(conn, prescribed_id)
+    sets_by_prescribed = queries.sets_for_session(conn, session_id)
+    sess = queries.session_by_id(conn, session_id)
+    return render_template(
+        "_exercise_block.html",
+        p=refreshed,
+        sess=sess,
+        sets_by_prescribed=sets_by_prescribed,
+        just_logged=just_logged,
+    )
+
+
+def _do_log_set(conn, prescribed_id):
+    weight = _to_float(request.form.get("weight"))
+    reps = _to_int(request.form.get("reps"))
+    rir = _to_int(request.form.get("rir"))
+    notes = request.form.get("notes") or None
+    next_n = (conn.execute(
+        "SELECT count(*) FROM sets WHERE prescribed_id = ? AND status = 'completed'",
+        (prescribed_id,),
+    ).fetchone()[0] or 0) + 1
+    conn.execute(
+        """
+        INSERT INTO sets
+            (prescribed_id, set_number, reps_actual, weight_actual,
+             rir_actual, status, notes, logged_at)
+        VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)
+        """,
+        (prescribed_id, next_n, reps, weight, rir, notes,
+         datetime.now().isoformat(timespec="seconds")),
+    )
+
+
+def _do_marker(conn, prescribed_id, status):
+    """Skip/defer the whole exercise. Wipes any partial sets & writes one marker row."""
+    conn.execute("DELETE FROM sets WHERE prescribed_id = ?", (prescribed_id,))
+    conn.execute(
+        """
+        INSERT INTO sets (prescribed_id, set_number, status, logged_at)
+        VALUES (?, 1, ?, ?)
+        """,
+        (prescribed_id, status, datetime.now().isoformat(timespec="seconds")),
+    )
+
+
+def _prescribed_by_id(conn, prescribed_id):
+    return conn.execute(
+        "SELECT * FROM prescribed WHERE id = ?", (prescribed_id,)
+    ).fetchone()
+
+
+def _prescribed_for_block(conn, prescribed_id):
+    """Same shape as queries.prescribed_for_session() rows, single id."""
+    return conn.execute(
+        """
+        SELECT p.id          AS prescribed_id,
+               p.position    AS position,
+               p.sets_planned, p.rep_low, p.rep_high,
+               p.weight_lb, p.rir_target, p.notes AS prescribed_notes,
+               e.id          AS exercise_id,
+               e.name        AS exercise_name,
+               e.notation    AS notation,
+               e.is_bodyweight AS is_bodyweight,
+               e.default_tempo,
+               e.primary_muscles
+          FROM prescribed p
+          JOIN exercises e ON e.id = p.exercise_id
+         WHERE p.id = ?
+        """,
+        (prescribed_id,),
+    ).fetchone()
+
+
+def _classify_completion(prescribed_rows, sets_by_prescribed) -> str:
+    """Return 'completed' if every exercise has at least one logged set
+    (regardless of status), 'partial' if any exercise has zero rows."""
+    if not prescribed_rows:
+        return "partial"
+    has_partial_gap = False
+    for p in prescribed_rows:
+        rows = sets_by_prescribed.get(p["prescribed_id"], [])
+        if not rows:
+            has_partial_gap = True
+            break
+        # If marker is skipped/deferred, that still counts as "addressed"
+    return "partial" if has_partial_gap else "completed"
+
+
+def _to_float(s):
+    if s is None or s == "":
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _to_int(s):
+    if s is None or s == "":
+        return None
+    try:
+        return int(float(s))
+    except ValueError:
+        return None
 
 
 app = create_app()

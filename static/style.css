@@ -79,6 +79,12 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
+  /* Hard-clip horizontal overflow at the document root. iOS Safari
+     sometimes ignores body-only overflow-x: hidden; clipping html as
+     well stops the page from ever scrolling sideways. */
+  overflow-x: clip;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 html, body {
@@ -96,7 +102,10 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   padding-bottom: env(safe-area-inset-bottom, 0);
+  overflow-x: clip;
   overflow-x: hidden;
+  max-width: 100vw;
+  position: relative;
 }
 
 /* ============================================================
@@ -148,9 +157,16 @@ main {
   max-width: 640px;
   margin: 0 auto;
   padding: var(--s-5) var(--s-4) var(--s-9);
+  min-width: 0;
 }
 @media (min-width: 720px) {
   main { padding: var(--s-7) var(--s-5) var(--s-9); }
+}
+
+/* Anything that could be wider than the viewport — tables, code,
+   pre, very long names — gets clipped to its parent. */
+table, pre, .narrative {
+  max-width: 100%;
 }
 
 /* ============================================================
@@ -161,20 +177,28 @@ main {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  display: flex;
+  align-items: stretch;
+  gap: var(--s-2);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
   -webkit-backdrop-filter: saturate(120%) blur(8px);
   backdrop-filter: saturate(120%) blur(8px);
   border-bottom: 1px solid var(--hairline);
   padding-top: env(safe-area-inset-top, 0);
+  max-width: 100vw;
+  min-width: 0;
 }
 
 .brand {
-  display: inline-block;
-  padding: var(--s-3) var(--s-4);
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 12px var(--s-4);
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   letter-spacing: -0.02em;
   color: var(--ink);
+  border-right: 1px solid var(--hairline-soft);
 }
 .brand:hover { text-decoration: none; }
 .brand::after {
@@ -184,29 +208,38 @@ main {
   background: var(--accent);
   border-radius: 50%;
   margin-left: 6px;
-  vertical-align: 2px;
+  align-self: center;
 }
 
 .nav-scroll {
   display: flex;
   gap: 0;
+  flex: 1 1 0;
+  min-width: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: 0 var(--s-3);
-  border-top: 1px solid var(--hairline-soft);
+  /* Soft fade at the right edge to indicate "more nav this way".
+     Uses mask so it doesn't paint a gradient and doesn't break in
+     old browsers. */
+  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
 }
 .nav-scroll::-webkit-scrollbar { display: none; }
 .nav-scroll a {
   flex: 0 0 auto;
-  padding: 11px var(--s-3);
-  font-size: 0.875rem;
+  padding: 12px 11px;
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--ink-mid);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color 0.12s, border-color 0.12s;
+  white-space: nowrap;
 }
+.nav-scroll a:first-child { padding-left: var(--s-2); }
+.nav-scroll a:last-child  { padding-right: var(--s-5); /* room for the mask fade */ }
 .nav-scroll a:hover, .nav-scroll a:focus-visible {
   color: var(--ink);
   text-decoration: none;
@@ -226,6 +259,10 @@ main {
   background: var(--paper-2);
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
+  /* Tables inside cards may exceed card width on narrow viewports;
+     allow the card to scroll its own contents instead of pushing the
+     page wider. */
+  overflow-x: auto;
 }
 .card > h2:first-child { margin-bottom: var(--s-2); }
 .card > .eyebrow:first-child + h2 { margin-top: var(--s-2); margin-bottom: var(--s-3); }

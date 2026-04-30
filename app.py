@@ -145,6 +145,65 @@ def create_app(config: dict | None = None) -> Flask:
         conn.commit()
         return redirect(url_for("home"))
 
+    # ---- metrics ---------------------------------------------------------
+
+    @app.get("/metrics")
+    def metrics():
+        conn = db.get_conn()
+        return render_template(
+            "metrics.html",
+            today=date.today().isoformat(),
+            weigh_ins=queries.recent_weigh_ins(conn),
+            dailies=queries.recent_daily_metrics(conn),
+            last_weigh_in=queries.last_weigh_in(conn),
+        )
+
+    @app.post("/metrics/weigh-in")
+    def metrics_weigh_in():
+        d = (request.form.get("date") or date.today().isoformat()).strip()
+        weight = _to_float(request.form.get("weight_lb"))
+        waist = _to_float(request.form.get("waist_in"))
+        if weight is None:
+            return redirect(url_for("metrics"))
+        conn = db.get_conn()
+        conn.execute(
+            """
+            INSERT INTO weigh_ins (date, weight_lb, waist_in)
+            VALUES (?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET
+                weight_lb = excluded.weight_lb,
+                waist_in  = excluded.waist_in
+            """,
+            (d, weight, waist),
+        )
+        conn.commit()
+        return redirect(url_for("metrics"))
+
+    @app.post("/metrics/daily")
+    def metrics_daily():
+        d = (request.form.get("date") or date.today().isoformat()).strip()
+        sleep = _to_float(request.form.get("sleep_hours"))
+        energy = _to_int(request.form.get("energy"))
+        steps = _to_int(request.form.get("steps"))
+        notes = (request.form.get("notes") or "").strip() or None
+        if sleep is None and energy is None and steps is None and not notes:
+            return redirect(url_for("metrics"))
+        conn = db.get_conn()
+        conn.execute(
+            """
+            INSERT INTO daily_metrics (date, sleep_hours, energy, steps, notes)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET
+                sleep_hours = excluded.sleep_hours,
+                energy      = excluded.energy,
+                steps       = excluded.steps,
+                notes       = excluded.notes
+            """,
+            (d, sleep, energy, steps, notes),
+        )
+        conn.commit()
+        return redirect(url_for("metrics"))
+
     # ---- issues ----------------------------------------------------------
 
     @app.get("/issues")

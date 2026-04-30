@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Metrics — workout-app{% endblock %}
+
+{% block content %}
+<h1>Metrics</h1>
+<p class="muted">Weekly weigh-in (Wed AM) + optional daily quick-log. Re-submitting for the same date overwrites.</p>
+
+<section class="card">
+  <h2>Weigh-in</h2>
+  <form method="post" action="{{ url_for('metrics_weigh_in') }}" class="metrics-form">
+    <div class="form-row">
+      <label>Date<input name="date" type="date" value="{{ today }}" required></label>
+      <label>Weight (lb)<input name="weight_lb" type="number" step="0.1" min="0" inputmode="decimal" required></label>
+      <label>Waist (in)<input name="waist_in" type="number" step="0.1" min="0" inputmode="decimal"></label>
+    </div>
+    <p><button class="btn btn-primary" type="submit">Save weigh-in</button></p>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Daily quick-log</h2>
+  <form method="post" action="{{ url_for('metrics_daily') }}" class="metrics-form">
+    <div class="form-row">
+      <label>Date<input name="date" type="date" value="{{ today }}" required></label>
+      <label>Sleep (h)<input name="sleep_hours" type="number" step="0.1" min="0" inputmode="decimal"></label>
+      <label>Energy (1-10)<input name="energy" type="number" step="1" min="1" max="10" inputmode="numeric"></label>
+      <label>Steps<input name="steps" type="number" step="100" min="0" inputmode="numeric"></label>
+    </div>
+    <label>Notes
+      <textarea name="notes" rows="2" placeholder="Anything to flag — niggles, stress, fueling…"></textarea>
+    </label>
+    <p><button class="btn btn-primary" type="submit">Save daily</button></p>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Recent weigh-ins</h2>
+  {% if weigh_ins %}
+    <table class="compact">
+      <thead><tr><th>Date</th><th>Weight</th><th>Waist</th></tr></thead>
+      <tbody>
+      {% for w in weigh_ins %}
+        <tr>
+          <td>{{ w.date }}</td>
+          <td>{{ '%g' % w.weight_lb }} lb</td>
+          <td>{% if w.waist_in is not none %}{{ '%g' % w.waist_in }} in{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No weigh-ins yet.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Recent daily logs</h2>
+  {% if dailies %}
+    <table class="compact">
+      <thead><tr><th>Date</th><th>Sleep</th><th>Energy</th><th>Steps</th><th>Notes</th></tr></thead>
+      <tbody>
+      {% for d in dailies %}
+        <tr>
+          <td>{{ d.date }}</td>
+          <td>{% if d.sleep_hours is not none %}{{ '%g' % d.sleep_hours }} h{% else %}—{% endif %}</td>
+          <td>{{ d.energy if d.energy is not none else '—' }}</td>
+          <td>{% if d.steps is not none %}{{ '{:,}'.format(d.steps) }}{% else %}—{% endif %}</td>
+          <td class="muted">{{ d.notes or '' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No daily logs yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

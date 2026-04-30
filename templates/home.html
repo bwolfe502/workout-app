@@ -56,9 +56,10 @@
 <section class="card">
   <h2>Recent metrics</h2>
   {% if weigh_in %}
-    <p>{{ weigh_in.date }}: {{ weigh_in.weight_lb }} lb{% if weigh_in.waist_in %}, waist {{ weigh_in.waist_in }} in{% endif %}</p>
+    <p>{{ weigh_in.date }}: {{ '%g' % weigh_in.weight_lb }} lb{% if weigh_in.waist_in %}, waist {{ '%g' % weigh_in.waist_in }} in{% endif %}</p>
   {% else %}
-    <p class="muted">No weigh-ins yet — Phase 2 will add the quick-log here.</p>
+    <p class="muted">No weigh-ins yet.</p>
   {% endif %}
+  <p><a href="{{ url_for('metrics') }}">Log weigh-in / daily →</a></p>
 </section>
 {% endblock %}

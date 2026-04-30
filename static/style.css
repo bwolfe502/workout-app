@@ -213,6 +213,34 @@ ul.issues li .issue-head { display: flex; align-items: baseline; gap: 0.5rem; fl
 ul.issues li .issue-foot { margin-top: 0.4rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
 ul.issues li.closed { opacity: 0.7; }
 
+/* --- metrics page --- */
+
+.metrics-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem 0.8rem;
+}
+.metrics-form label {
+  display: block;
+  font-size: 0.88em;
+  color: var(--muted);
+}
+.metrics-form input,
+.metrics-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  background: rgba(0,0,0,0.2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.55rem 0.65rem;
+  font-size: 1rem;
+  font-family: inherit;
+  min-height: 44px;
+}
+.metrics-form textarea { min-height: auto; }
+
 /* --- live session view --- */
 
 .exercise-block {

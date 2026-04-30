@@ -147,6 +147,18 @@ def last_weigh_in(conn: sqlite3.Connection) -> sqlite3.Row | None:
     ).fetchone()
 
 
+def recent_weigh_ins(conn: sqlite3.Connection, limit: int = 30) -> list[sqlite3.Row]:
+    return list(conn.execute(
+        "SELECT * FROM weigh_ins ORDER BY date DESC LIMIT ?", (limit,),
+    ))
+
+
+def recent_daily_metrics(conn: sqlite3.Connection, limit: int = 30) -> list[sqlite3.Row]:
+    return list(conn.execute(
+        "SELECT * FROM daily_metrics ORDER BY date DESC LIMIT ?", (limit,),
+    ))
+
+
 # --- formatters used by templates ------------------------------------------
 
 

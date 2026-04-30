@@ -51,33 +51,64 @@ def test_healthz_always_public(gated_client) -> None:
     assert r.status_code == 200
 
 
-def test_no_token_returns_401(gated_client) -> None:
+def test_no_cookie_redirects_to_login(gated_client) -> None:
     r = gated_client.get("/")
-    assert r.status_code == 401
+    assert r.status_code == 302
+    assert "/login" in r.headers["Location"]
 
 
-def test_401_page_uses_custom_template(gated_client) -> None:
-    r = gated_client.get("/")
+def test_login_page_public(gated_client) -> None:
+    r = gated_client.get("/login")
+    assert r.status_code == 200
     body = r.get_data(as_text=True)
-    # Friendly copy that explains the token URL pattern, not Werkzeug's
-    # stock 'credentials/password' page.
-    assert "Locked" in body
-    assert "?token=" in body
-    # Don't leak the actual token value into the 401 body.
+    assert "Password" in body
+    # No token leaked
     assert TOKEN not in body
 
 
-def test_wrong_token_returns_401(gated_client) -> None:
-    r = gated_client.get("/?token=nope")
+def test_login_form_preserves_next_url(gated_client) -> None:
+    r = gated_client.get("/stats")
+    assert r.status_code == 302
+    assert "next=" in r.headers["Location"]
+    assert "stats" in r.headers["Location"]
+
+
+def test_wrong_password_returns_401_with_form(gated_client) -> None:
+    r = gated_client.post("/login", data={"password": "wrong"})
     assert r.status_code == 401
+    body = r.get_data(as_text=True)
+    assert "Wrong password" in body
+    # Form is still there
+    assert "Sign in" in body
 
 
-def test_correct_token_redirects_and_sets_cookie(gated_client) -> None:
+def test_correct_password_sets_cookie_and_redirects(gated_client) -> None:
+    r = gated_client.post("/login", data={"password": TOKEN, "next": "/program"})
+    assert r.status_code == 302
+    assert r.headers["Location"] == "/program"
+    cookie = r.headers.get("Set-Cookie", "")
+    assert "workout_auth=" in cookie
+    assert TOKEN in cookie
+
+
+def test_login_rejects_open_redirect(gated_client) -> None:
+    r = gated_client.post("/login", data={"password": TOKEN, "next": "//evil.com"})
+    assert r.status_code == 302
+    assert r.headers["Location"] == "/"
+
+
+def test_wrong_token_in_url_redirects_to_login(gated_client) -> None:
+    r = gated_client.get("/?token=nope")
+    # Wrong token falls through the URL-token check to the login redirect.
+    assert r.status_code == 302
+    assert "/login" in r.headers["Location"]
+
+
+def test_correct_token_in_url_redirects_and_sets_cookie(gated_client) -> None:
+    """The legacy ?token=… URL still works for bookmark recovery."""
     r = gated_client.get(f"/?token={TOKEN}")
     assert r.status_code == 302
-    # Redirect strips the token from the URL
     assert r.headers["Location"] == "/"
-    # Cookie is set
     cookie = r.headers.get("Set-Cookie", "")
     assert "workout_auth=" in cookie
     assert TOKEN in cookie
@@ -108,9 +139,10 @@ def test_open_client_has_no_gate(open_client) -> None:
 
 
 def test_post_endpoints_also_gated(gated_client) -> None:
-    """The gate must protect POST routes too — no token, no write."""
+    """The gate must protect POST routes too — no cookie, no write."""
     r = gated_client.post("/issues", data={"item": "Sneaky write"})
-    assert r.status_code == 401
+    assert r.status_code == 302
+    assert "/login" in r.headers["Location"]
 
 
 def test_proxy_fix_trusts_forwarded_proto(gated_client) -> None:

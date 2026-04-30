@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>workout-app — sign in</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main style="max-width:400px;margin:5rem auto;padding:1.5rem;">
+    <h1 style="font-size:1.4rem;text-align:center;margin-bottom:0.4rem;">🔒 workout-app</h1>
+    <p class="muted" style="text-align:center;margin-bottom:2rem;">
+      Single-user gate. Cookie sticks for a year.
+    </p>
+
+    <form method="post" action="{{ url_for('login_submit') }}" class="card" style="padding:1.5rem;">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <label>Password
+        <input name="password" type="password" required autofocus autocomplete="current-password"
+               style="display:block;width:100%;margin-top:0.4rem;background:rgba(0,0,0,0.25);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.7rem 0.75rem;font-size:1rem;font-family:inherit;min-height:48px;">
+      </label>
+      {% if error %}
+        <p style="margin-top:0.85rem;color:#ef9a9a;font-size:0.9em;">{{ error }}</p>
+      {% endif %}
+      <p style="margin-top:1.2rem;">
+        <button class="btn btn-primary" type="submit" style="width:100%;">Sign in</button>
+      </p>
+    </form>
+  </main>
+</body>
+</html>

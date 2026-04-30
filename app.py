@@ -408,15 +408,22 @@ def create_app(config: dict | None = None) -> Flask:
 
 
 def _register_token_gate(app: Flask) -> None:
-    """Single shared-secret gate. ?token=X works once, then a cookie carries
-    it. /healthz is exempt. If AUTH_TOKEN is empty (local dev), no gate."""
+    """Single shared-secret gate. Three ways in, all use the same WORKOUT_TOKEN:
+
+      1. Password form at /login (primary UX)
+      2. ?token=<secret> in URL (operator convenience, bookmark recovery)
+      3. Existing workout_auth cookie (sticky for a year after either of above)
+
+    /healthz and /login are public; if AUTH_TOKEN is empty (local dev), no
+    gate runs at all.
+    """
 
     @app.before_request
     def _check_token():
         expected = app.config.get("AUTH_TOKEN") or ""
         if not expected:
             return None  # gate disabled
-        if request.path in _PUBLIC_PATHS:
+        if request.path in _PUBLIC_PATHS or request.path == "/login":
             return None
         if request.cookies.get(_AUTH_COOKIE) == expected:
             return None
@@ -426,17 +433,44 @@ def _register_token_gate(app: Flask) -> None:
             target = request.path
             if clean_args:
                 target = f"{request.path}?{urlencode(clean_args)}"
-            resp = make_response(redirect(target))
-            resp.set_cookie(
-                _AUTH_COOKIE,
-                expected,
-                max_age=_COOKIE_MAX_AGE,
-                httponly=True,
-                secure=request.is_secure,
-                samesite="Lax",
-            )
-            return resp
-        abort(401)
+            return _set_auth_cookie_and_redirect(target, expected)
+        # Otherwise, send to /login with a `next` param so we can return them
+        # to where they were going.
+        next_url = request.full_path if request.query_string else request.path
+        return redirect(url_for("login", next=next_url))
+
+    @app.get("/login")
+    def login():
+        return render_template("login.html",
+                               next_url=request.args.get("next") or "/",
+                               error=None)
+
+    @app.post("/login")
+    def login_submit():
+        expected = app.config.get("AUTH_TOKEN") or ""
+        password = request.form.get("password", "")
+        next_url = request.form.get("next") or "/"
+        # Sanitize next_url — must be a relative path within this app, not
+        # an open redirect to some other site.
+        if not next_url.startswith("/") or next_url.startswith("//"):
+            next_url = "/"
+        if password and password == expected:
+            return _set_auth_cookie_and_redirect(next_url, expected)
+        return render_template("login.html", next_url=next_url,
+                               error="Wrong password."), 401
+
+
+def _set_auth_cookie_and_redirect(target: str, token: str):
+    resp = make_response(redirect(target))
+    resp.set_cookie(
+        _AUTH_COOKIE,
+        token,
+        max_age=_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=request.is_secure,
+        samesite="Lax",
+    )
+    return resp
 
 
 # ---- error pages ----------------------------------------------------------

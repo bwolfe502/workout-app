@@ -1,10 +1,17 @@
-"""Flask entry point. Phase 1 scaffold - real routes coming next."""
+"""Flask entry point. Phase 1 logger."""
+
+from __future__ import annotations
 
 from flask import Flask
 
+import db
 
-def create_app() -> Flask:
+
+def create_app(config: dict | None = None) -> Flask:
     app = Flask(__name__)
+    if config:
+        app.config.update(config)
+    db.init_app(app)
 
     @app.get("/")
     def home():

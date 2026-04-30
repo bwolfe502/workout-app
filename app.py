@@ -1,11 +1,14 @@
-"""Flask entry point. Phase 1 logger."""
+"""Flask entry point."""
 
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, datetime
+from urllib.parse import urlencode
 
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import Flask, abort, make_response, redirect, render_template, request, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 import claude_apply
 import claude_bundle
@@ -13,12 +16,27 @@ import db
 import queries
 import volume
 
+# Paths exempt from the URL-token gate. /healthz so the systemd watchdog and
+# any uptime check can probe without a secret.
+_PUBLIC_PATHS: frozenset[str] = frozenset({"/healthz"})
+_AUTH_COOKIE = "workout_auth"
+_COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # one year
+
 
 def create_app(config: dict | None = None) -> Flask:
     app = Flask(__name__)
+    # AUTH_TOKEN — when set, every request needs ?token=… (one-shot, then a
+    # cookie carries it). Empty / unset → no gate, useful in local dev.
+    app.config.setdefault("AUTH_TOKEN", os.environ.get("WORKOUT_TOKEN", ""))
     if config:
         app.config.update(config)
+
+    # Behind nginx in prod, trust X-Forwarded-Proto so request.is_secure works
+    # and the auth cookie can be marked Secure.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     db.init_app(app)
+    _register_token_gate(app)
 
     # Expose template helpers without forcing every route to pass them.
     app.jinja_env.globals.update(
@@ -383,6 +401,41 @@ def create_app(config: dict | None = None) -> Flask:
         return {"ok": True}, 200
 
     return app
+
+
+# ---- URL-token gate -------------------------------------------------------
+
+
+def _register_token_gate(app: Flask) -> None:
+    """Single shared-secret gate. ?token=X works once, then a cookie carries
+    it. /healthz is exempt. If AUTH_TOKEN is empty (local dev), no gate."""
+
+    @app.before_request
+    def _check_token():
+        expected = app.config.get("AUTH_TOKEN") or ""
+        if not expected:
+            return None  # gate disabled
+        if request.path in _PUBLIC_PATHS:
+            return None
+        if request.cookies.get(_AUTH_COOKIE) == expected:
+            return None
+        if request.args.get("token") == expected:
+            # Strip token from query string and bake a cookie.
+            clean_args = {k: v for k, v in request.args.items() if k != "token"}
+            target = request.path
+            if clean_args:
+                target = f"{request.path}?{urlencode(clean_args)}"
+            resp = make_response(redirect(target))
+            resp.set_cookie(
+                _AUTH_COOKIE,
+                expected,
+                max_age=_COOKIE_MAX_AGE,
+                httponly=True,
+                secure=request.is_secure,
+                samesite="Lax",
+            )
+            return resp
+        abort(401)
 
 
 # ---- helpers --------------------------------------------------------------

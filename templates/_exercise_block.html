@@ -1,54 +1,71 @@
-{# Renders one exercise's full state for the live view.
+{# One exercise's full state for the live view.
 
    Variables:
-     p                 — prescribed row (joined with exercises)
+     p                 — prescribed row joined with exercises
      sess              — session row
      sets_by_prescribed (optional) — {prescribed_id: [set_rows]} from server
      just_logged       (optional bool) — set when the swap should kick the rest timer
-
-   Used both as a stand-alone partial (htmx swap target) and as an iteration
-   item inside session_live.html.
 #}
 {% set existing = (sets_by_prescribed.get(p.prescribed_id, []) if sets_by_prescribed else []) %}
 {% set non_status_sets = existing|selectattr('status', 'equalto', 'completed')|list %}
 {% set last_set = non_status_sets[-1] if non_status_sets else None %}
 {% set marker_set = existing[0] if existing and existing[0].status in ('skipped', 'deferred') else None %}
 {% set next_set_number = (existing|selectattr('status', 'equalto', 'completed')|list|length) + 1 %}
-{# Defaults: previous set's actual values, fallback to prescription. #}
 {% set default_weight = (last_set.weight_actual if last_set and last_set.weight_actual is not none
                           else (p.weight_lb if p.weight_lb is not none else 0)) %}
 {% set default_reps = (last_set.reps_actual if last_set and last_set.reps_actual
                         else (p.rep_low or 8)) %}
 {% set default_rir = (last_set.rir_actual if last_set and last_set.rir_actual is not none
                        else (p.rir_target if p.rir_target is not none else 2)) %}
-{# 2.5 lb steps for BB lifts, 1 lb for everything else. Bodyweight = no step. #}
 {% set step = 2.5 if 'BB' in p.exercise_name or 'Barbell' in p.exercise_name else 1 %}
 {% set rest_seconds = 120 if (p.position is defined and p.position <= 3) else 90 %}
 
-<div id="exercise-block-{{ p.prescribed_id }}"
-     class="exercise-block {{ marker_set.status if marker_set else '' }}"
-     {% if just_logged %}data-rest-trigger data-rest-seconds="{{ rest_seconds }}"{% endif %}>
+<section id="exercise-block-{{ p.prescribed_id }}"
+         class="exercise-block {{ marker_set.status if marker_set else '' }}"
+         {% if just_logged %}data-rest-trigger data-rest-seconds="{{ rest_seconds }}"{% endif %}>
 
-  <h3>
-    <span>{{ p.position }}. {{ p.exercise_name }}</span>
+  <header class="exercise-head">
+    <span class="position">{{ '%02d' % p.position }}</span>
+    <span class="name">{{ p.exercise_name }}</span>
     {% if marker_set %}
       <span class="status status-{{ marker_set.status }}">{{ marker_set.status }}</span>
     {% endif %}
-  </h3>
+  </header>
 
-  <p class="target">
-    Target: {{ p.sets_planned }} × {{ format_reps(p) }} @ {{ format_weight(p) }}
-    {% if p.rir_target is not none %}· RIR {{ p.rir_target }}{% endif %}
-    {% if p.default_tempo %}· tempo {{ p.default_tempo }}{% endif %}
-  </p>
+  <div class="target-strip" role="group" aria-label="Prescribed target">
+    <div class="cell">
+      <span class="label">Sets</span>
+      <span class="value">{{ p.sets_planned }}</span>
+    </div>
+    <div class="cell">
+      <span class="label">Reps</span>
+      <span class="value">{{ format_reps(p) }}</span>
+    </div>
+    <div class="cell">
+      <span class="label">Load</span>
+      <span class="value">
+        {% if p.is_bodyweight or p.notation == 'bw' %}
+          BW
+        {% elif p.weight_lb is not none %}
+          {{ '%g' % p.weight_lb }}<span class="unit">{% if p.notation == 'per_hand' %}lb/h{% else %}lb{% endif %}</span>
+        {% else %}—{% endif %}
+      </span>
+    </div>
+    <div class="cell">
+      <span class="label">RIR</span>
+      <span class="value">{{ p.rir_target if p.rir_target is not none else '—' }}</span>
+    </div>
+  </div>
+
+  {% if p.default_tempo %}<p class="target-tempo">Tempo {{ p.default_tempo }}</p>{% endif %}
 
   {% if non_status_sets %}
     <div class="sets-logged">
       {% for s in non_status_sets %}
         <span class="set-chip">
-          #{{ s.set_number }}: {{ s.reps_actual }} ×
-          {% if s.weight_actual is not none %}{{ '%g' % s.weight_actual }} lb{% else %}BW{% endif %}
-          {% if s.rir_actual is not none %}@RIR{{ s.rir_actual }}{% endif %}
+          <span class="num">#{{ s.set_number }}</span>
+          {{ s.reps_actual }}×{% if s.weight_actual is not none %}{{ '%g' % s.weight_actual }}{% else %}BW{% endif %}
+          {% if s.rir_actual is not none %}<span class="rir">RIR{{ s.rir_actual }}</span>{% endif %}
         </span>
       {% endfor %}
     </div>
@@ -59,28 +76,32 @@
           hx-post="{{ url_for('log_set', session_id=sess.id, prescribed_id=p.prescribed_id) }}"
           hx-target="#exercise-block-{{ p.prescribed_id }}"
           hx-swap="outerHTML">
-      <div>
-        <label>Weight (lb){% if p.notation == 'per_hand' %} /hand{% endif %}</label>
+      <div class="field">
+        <span class="field-label">Weight (lb){% if p.notation == 'per_hand' %} / hand{% endif %}</span>
         <div class="stepper">
-          <button type="button" data-step="{{ -step }}" data-target="weight-{{ p.prescribed_id }}">−</button>
+          <button type="button" data-step="{{ -step }}" data-target="weight-{{ p.prescribed_id }}" aria-label="decrease weight">−</button>
           <input id="weight-{{ p.prescribed_id }}" name="weight" type="number"
                  step="{{ step }}" min="0" inputmode="decimal" value="{{ default_weight }}">
-          <button type="button" data-step="{{ step }}" data-target="weight-{{ p.prescribed_id }}">+</button>
+          <button type="button" data-step="{{ step }}" data-target="weight-{{ p.prescribed_id }}" aria-label="increase weight">+</button>
         </div>
       </div>
-      <div>
-        <label>Reps</label>
+      <div class="field">
+        <span class="field-label">Reps</span>
         <div class="stepper">
-          <button type="button" data-step="-1" data-target="reps-{{ p.prescribed_id }}">−</button>
+          <button type="button" data-step="-1" data-target="reps-{{ p.prescribed_id }}" aria-label="decrease reps">−</button>
           <input id="reps-{{ p.prescribed_id }}" name="reps" type="number"
                  step="1" min="0" inputmode="numeric" value="{{ default_reps }}">
-          <button type="button" data-step="1" data-target="reps-{{ p.prescribed_id }}">+</button>
+          <button type="button" data-step="1" data-target="reps-{{ p.prescribed_id }}" aria-label="increase reps">+</button>
         </div>
       </div>
-      <div class="rir-row">
-        <label>RIR <output id="rir-out-{{ p.prescribed_id }}">{{ default_rir }}</output></label>
+      <div class="field rir-row">
+        <span class="field-label">
+          <span>RIR</span>
+          <span class="rir-out" id="rir-out-{{ p.prescribed_id }}">{{ default_rir }}</span>
+        </span>
         <input type="range" name="rir" min="0" max="5" step="1" value="{{ default_rir }}"
-               oninput="document.getElementById('rir-out-{{ p.prescribed_id }}').textContent = this.value">
+               style="--rir-pct: {{ default_rir * 20 }}%"
+               oninput="document.getElementById('rir-out-{{ p.prescribed_id }}').textContent = this.value; this.style.setProperty('--rir-pct', (this.value*20)+'%')">
       </div>
       <div class="submit-row">
         <button type="submit" class="btn btn-primary">Log set #{{ next_set_number }}</button>
@@ -94,8 +115,8 @@
       </form>
       <form hx-post="{{ url_for('defer_exercise', session_id=sess.id, prescribed_id=p.prescribed_id) }}"
             hx-target="#exercise-block-{{ p.prescribed_id }}" hx-swap="outerHTML">
-        <button class="btn btn-secondary" type="submit">Defer to next session</button>
+        <button class="btn btn-secondary" type="submit">Defer</button>
       </form>
     </div>
   {% endif %}
-</div>
+</section>

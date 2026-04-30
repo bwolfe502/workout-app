@@ -1,14 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Session {{ sess.day_number }} live — workout-app{% endblock %}
+{% block title %}Session {{ sess.day_number }} live — LIFT{% endblock %}
 
 {% block content %}
-<p><a href="{{ url_for('sessions') }}">← All sessions</a></p>
+<a class="session-back" href="{{ url_for('sessions') }}">← All sessions</a>
 
-<h1>
-  {{ format_session_label(sess) }}
-  <span class="status status-{{ sess.status }}">{{ sess.status }}</span>
-</h1>
-<p class="muted">{{ sess.planned_date or '' }}</p>
+<div class="session-header">
+  <div class="session-line">
+    <h1 class="session-title">{{ format_session_label(sess) }}</h1>
+    <span class="status status-{{ sess.status }}">{{ sess.status }}</span>
+  </div>
+  {% if sess.planned_date %}
+    <p class="session-date">{{ sess.planned_date }}</p>
+  {% endif %}
+</div>
 
 {% if not prescribed %}
   <p class="muted">No prescribed exercises on file.</p>
@@ -19,14 +23,13 @@
 {% endfor %}
 
 {% if prescribed %}
-  <form action="{{ url_for('finish_session', session_id=sess.id) }}" method="post" class="card">
+  <form action="{{ url_for('finish_session', session_id=sess.id) }}" method="post" class="card finish-card">
     <h2>Finish session</h2>
-    <label for="narrative">How did it feel?</label>
-    <textarea id="narrative" name="narrative" rows="4" placeholder="Notes on form, pain, energy, anything to flag…"
-              style="width:100%;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.5rem;">{{ sess.narrative_md or '' }}</textarea>
-    <p style="margin-top:0.85rem;">
-      <button type="submit" class="btn btn-primary">Mark session complete</button>
-    </p>
+    <label for="narrative">How did it feel?
+      <textarea id="narrative" name="narrative" rows="4"
+                placeholder="Notes on form, pain, energy, anything to flag…">{{ sess.narrative_md or '' }}</textarea>
+    </label>
+    <button type="submit" class="btn btn-primary btn-block mt-3">Mark session complete</button>
   </form>
 {% endif %}
 {% endblock %}

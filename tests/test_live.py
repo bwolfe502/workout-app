@@ -73,7 +73,8 @@ def test_log_set_persists_and_returns_partial(client, app_and_db) -> None:
     assert r.status_code == 200
     body = r.get_data(as_text=True)
     # Returned partial should show the new set chip and a #2 form
-    assert "#1: 8 ×" in body
+    assert "#1" in body
+    assert "8×35" in body
     assert "Log set #2" in body
     # Persisted in DB
     conn = _open_conn(app_and_db[1])

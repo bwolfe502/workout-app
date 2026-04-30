@@ -141,5 +141,8 @@ def test_home_shows_latest_weigh_in(client, app_and_db) -> None:
     client.post("/metrics/weigh-in", data={"date": "2026-04-30", "weight_lb": "186.4", "waist_in": "36.5"})
     r = client.get("/")
     body = r.get_data(as_text=True)
-    assert "186.4 lb" in body
-    assert "36.5 in" in body
+    # The weight + unit are split across spans for the new metric-line layout.
+    assert "186.4" in body
+    assert "lb" in body
+    assert "36.5" in body
+    assert "in waist" in body

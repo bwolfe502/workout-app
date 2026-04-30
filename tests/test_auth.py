@@ -66,6 +66,14 @@ def test_login_page_public(gated_client) -> None:
     assert TOKEN not in body
 
 
+def test_static_assets_are_public(gated_client) -> None:
+    """The login page must be able to pull /static/style.css before the
+    cookie is set, otherwise it renders unstyled."""
+    r = gated_client.get("/static/style.css")
+    assert r.status_code == 200
+    assert b"--paper" in r.data or r.data  # any body is fine, just not 302
+
+
 def test_login_form_preserves_next_url(gated_client) -> None:
     r = gated_client.get("/stats")
     assert r.status_code == 302

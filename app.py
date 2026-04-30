@@ -433,6 +433,10 @@ def _register_token_gate(app: Flask) -> None:
             return None  # gate disabled
         if request.path in _PUBLIC_PATHS or request.path == "/login":
             return None
+        # Static assets must be reachable without auth so the login page
+        # can pull its own CSS / JS / fonts before the cookie is set.
+        if request.path.startswith("/static/"):
+            return None
         if request.cookies.get(_AUTH_COOKIE) == expected:
             return None
         if request.args.get("token") == expected:

@@ -206,6 +206,32 @@ def create_app(config: dict | None = None) -> Flask:
         return render_template("claude_apply.html", raw=raw,
                                diff=diff, error=None, applied_id=None)
 
+    @app.get("/claude/log")
+    def claude_log():
+        conn = db.get_conn()
+        rows = queries.ai_interactions(conn)
+        # Pre-decode JSON for the template (Jinja's tojson roundtrip is ugly).
+        decoded = []
+        for r in rows:
+            decoded.append({
+                "id": r["id"],
+                "created_at": r["created_at"],
+                "status": r["status"],
+                "parsed_json": json.loads(r["parsed_json"]) if r["parsed_json"] else {},
+                "snapshot": json.loads(r["applied_diff"]) if r["applied_diff"] else {},
+            })
+        return render_template("claude_log.html", interactions=decoded,
+                               error=request.args.get("error"))
+
+    @app.post("/claude/log/<int:ai_id>/rollback")
+    def claude_rollback(ai_id: int):
+        conn = db.get_conn()
+        try:
+            claude_apply.rollback(conn, ai_id)
+        except claude_apply.ApplyError as e:
+            return redirect(url_for("claude_log", error=str(e)))
+        return redirect(url_for("claude_log"))
+
     # ---- stats -----------------------------------------------------------
 
     @app.get("/stats")

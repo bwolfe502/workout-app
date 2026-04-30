@@ -132,6 +132,24 @@ def issue_by_id(conn: sqlite3.Connection, issue_id: int) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM issues WHERE id = ?", (issue_id,)).fetchone()
 
 
+def ai_interactions(conn: sqlite3.Connection, limit: int = 100) -> list[sqlite3.Row]:
+    return list(conn.execute(
+        """
+        SELECT id, created_at, status, parsed_json, applied_diff
+          FROM ai_interactions
+         ORDER BY created_at DESC, id DESC
+         LIMIT ?
+        """,
+        (limit,),
+    ))
+
+
+def ai_interaction_by_id(conn: sqlite3.Connection, ai_id: int) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM ai_interactions WHERE id = ?", (ai_id,)
+    ).fetchone()
+
+
 def revisions(conn: sqlite3.Connection, mesocycle_id: int) -> list[sqlite3.Row]:
     return list(conn.execute(
         """

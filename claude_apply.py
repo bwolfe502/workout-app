@@ -240,30 +240,32 @@ def apply(
     Returns the new ai_interactions.id for rollback referencing.
     Raises ApplyError if any individual mutation fails.
     """
-    # Re-build diff so any errors surface before we touch state.
     diff = build_diff(conn, response, mesocycle_id)
     if diff.has_errors:
         msgs = [e.error for e in diff.entries if e.error]
         raise ApplyError("Diff has errors; nothing applied:\n  - " + "\n  - ".join(msgs))
 
-    # The "applied diff" is the human-readable record we store for the audit
-    # log; the "snapshot" is the structured undo data needed for rollback.
+    # Capture before-images. After each insert we'll backfill the
+    # auto-generated id so rollback can find the row again.
     snapshot = _take_snapshot(conn, response, mesocycle_id)
 
     now = datetime.now().isoformat(timespec="seconds")
     today = date.today().isoformat()
 
-    # Apply mutations
-    for r in response.get("revisions", []) or []:
-        conn.execute(
+    for i, r in enumerate(response.get("revisions", []) or []):
+        cur = conn.execute(
             "INSERT INTO revisions (mesocycle_id, date, change, reason) VALUES (?, ?, ?, ?)",
             (mesocycle_id, r["date"], r["change"], r["reason"]),
         )
-    for o in response.get("issue_opens", []) or []:
-        conn.execute(
+        snapshot["revisions_added"][i]["id"] = cur.lastrowid
+
+    for i, o in enumerate(response.get("issue_opens", []) or []):
+        cur = conn.execute(
             "INSERT INTO issues (opened_at, item, status, action, severity) VALUES (?, ?, ?, ?, ?)",
             (today, o["item"], o["status"], o.get("action"), o.get("severity")),
         )
+        snapshot["issues_opened"][i]["id"] = cur.lastrowid
+
     for c in response.get("issue_closes", []) or []:
         conn.execute(
             "UPDATE issues SET closed_at = ? WHERE id = ?",
@@ -272,7 +274,6 @@ def apply(
     for u in response.get("prescription_updates", []) or []:
         _apply_prescription(conn, mesocycle_id, u)
 
-    # Audit row
     cur = conn.execute(
         """
         INSERT INTO ai_interactions
@@ -289,6 +290,63 @@ def apply(
     )
     conn.commit()
     return cur.lastrowid
+
+
+# ---- rollback --------------------------------------------------------------
+
+
+def rollback(conn: sqlite3.Connection, interaction_id: int) -> None:
+    """Replay the inverse of an applied interaction. Idempotent only in the
+    sense that double-rollback raises — it doesn't silently no-op."""
+    row = conn.execute(
+        "SELECT * FROM ai_interactions WHERE id = ?", (interaction_id,)
+    ).fetchone()
+    if row is None:
+        raise ApplyError(f"Interaction #{interaction_id} not found.")
+    if row["status"] != "applied":
+        raise ApplyError(
+            f"Interaction #{interaction_id} is '{row['status']}', not 'applied'."
+        )
+    snapshot = json.loads(row["applied_diff"])
+
+    # Inverse, in reverse order of original apply:
+
+    for u in snapshot.get("prescription_updates", []):
+        before = u["before"]
+        conn.execute(
+            """
+            UPDATE prescribed
+               SET sets_planned = ?,
+                   rep_low = ?, rep_high = ?,
+                   weight_lb = ?, rir_target = ?,
+                   notes = ?,
+                   exercise_id = ?
+             WHERE id = ?
+            """,
+            (before["sets_planned"], before["rep_low"], before["rep_high"],
+             before["weight_lb"], before["rir_target"], before["notes"],
+             before["exercise_id"], u["prescribed_id"]),
+        )
+
+    for c in snapshot.get("issue_closes", []):
+        conn.execute(
+            "UPDATE issues SET closed_at = ? WHERE id = ?",
+            (c["previous_closed_at"], c["id"]),
+        )
+
+    for o in snapshot.get("issues_opened", []):
+        if o.get("id") is not None:
+            conn.execute("DELETE FROM issues WHERE id = ?", (o["id"],))
+
+    for r in snapshot.get("revisions_added", []):
+        if r.get("id") is not None:
+            conn.execute("DELETE FROM revisions WHERE id = ?", (r["id"],))
+
+    conn.execute(
+        "UPDATE ai_interactions SET status = 'rolled_back' WHERE id = ?",
+        (interaction_id,),
+    )
+    conn.commit()
 
 
 def _apply_prescription(

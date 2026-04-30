@@ -1,44 +1,40 @@
 {% extends "base.html" %}
-{% block title %}LIFT — {{ mesocycle.name if mesocycle else 'Home' }}{% endblock %}
+{% block title %}LIFT — Today{% endblock %}
 
 {% block content %}
 {% if next_sess %}
-  <section class="hero-session">
-    <div class="hero-eyebrow">{{ mesocycle.name if mesocycle else 'Active mesocycle' }} · Next up</div>
-    <h1 class="hero-title">
-      <span class="session-num">S{{ next_sess.day_number }}</span>
-      <br>Workout {{ next_sess.workout_letter }}
+  <section class="today">
+    <p class="eyebrow">{{ mesocycle.name if mesocycle else 'Today' }}</p>
+    <h1>
+      Session <span class="accent">{{ next_sess.day_number }}</span>
+      <span class="dim" style="font-weight:600;">/ Workout {{ next_sess.workout_letter }}</span>
     </h1>
-    <div class="hero-meta">
+    <p class="meta">
       {% if next_sess.planned_date %}{{ next_sess.planned_date }}{% endif %}
       {% if next_sess.planned_date and next_prescribed %}<span class="sep">·</span>{% endif %}
       {% if next_prescribed %}{{ next_prescribed|length }} exercises{% endif %}
-    </div>
+    </p>
 
     {% if next_prescribed %}
-      <div class="hero-prescribed">
-        <table class="prescribed">
-          <thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Load</th><th>RIR</th></tr></thead>
-          <tbody>
+      <div class="preview">
+        <ol>
           {% for p in next_prescribed %}
-            <tr>
-              <td>{{ p.exercise_name }}</td>
-              <td>{{ p.sets_planned }}</td>
-              <td>{{ format_reps(p) }}</td>
-              <td>{{ format_weight(p) }}</td>
-              <td>{{ p.rir_target if p.rir_target is not none else '—' }}</td>
-            </tr>
+            <li>
+              <span class="pos">{{ '%02d' % loop.index }}</span>
+              <span class="name">{{ p.exercise_name }}</span>
+              <span class="pres">
+                {{ p.sets_planned }}×{{ format_reps(p) }}
+                {% if not p.is_bodyweight and p.weight_lb is not none %} · {{ '%g' % p.weight_lb }}{% if p.notation == 'per_hand' %}/h{% endif %}{% endif %}
+              </span>
+            </li>
           {% endfor %}
-          </tbody>
-        </table>
+        </ol>
       </div>
     {% endif %}
 
-    <div class="hero-cta">
-      <a class="btn btn-primary btn-block" href="{{ url_for('session_detail', session_id=next_sess.id) }}">
-        Start session
-      </a>
-    </div>
+    <a class="btn btn-primary start-cta" href="{{ url_for('session_detail', session_id=next_sess.id) }}">
+      Start session
+    </a>
   </section>
 {% else %}
   <section class="card">
@@ -48,10 +44,10 @@
 {% endif %}
 
 <section class="card">
-  <h2>Open issues</h2>
+  <h2>Notes</h2>
   {% if issues %}
-    <ul class="issues compact">
-      {% for i in issues[:5] %}
+    <ul class="issues">
+      {% for i in issues[:4] %}
         <li>
           <div class="issue-head">
             <strong>{{ i.item }}</strong>
@@ -61,11 +57,11 @@
         </li>
       {% endfor %}
     </ul>
-    {% if issues|length > 5 %}
+    {% if issues|length > 4 %}
       <p class="mt-3 small"><a href="{{ url_for('issues_list') }}">View all {{ issues|length }} →</a></p>
     {% endif %}
   {% else %}
-    <p class="muted">No open issues.</p>
+    <p class="muted">No open notes.</p>
   {% endif %}
 </section>
 
@@ -81,10 +77,10 @@
         <span class="metric-unit">in waist</span>
       {% endif %}
     </p>
-    <p class="muted small">{{ weigh_in.date }}</p>
+    <p class="muted small mt-2">{{ weigh_in.date }}</p>
   {% else %}
     <p class="muted">No weigh-ins yet.</p>
   {% endif %}
-  <p class="mt-3"><a href="{{ url_for('metrics') }}">Log weigh-in / daily →</a></p>
+  <p class="mt-4"><a href="{{ url_for('metrics') }}">Log weigh-in / daily →</a></p>
 </section>
 {% endblock %}

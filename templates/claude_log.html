@@ -1,37 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Claude audit log — workout-app{% endblock %}
+{% block title %}Audit log — LIFT{% endblock %}
 
 {% block content %}
 <h1>Claude audit log</h1>
-<p class="muted">
-  Every applied response is recorded here with the full payload + a
-  before-image snapshot. Rollback replays the inverse in a single
-  transaction.
+<p class="muted mt-2">
+  Every applied response is recorded with the payload + a before-image
+  snapshot. Rollback replays the inverse in a single transaction.
 </p>
 
 {% if error %}
-  <section class="card" style="border-color:#ef5350;">
-    <h2 style="color:#ef5350;">Rollback failed</h2>
+  <section class="card card-error mt-4">
+    <h2>Rollback failed</h2>
     <pre class="narrative">{{ error }}</pre>
   </section>
 {% endif %}
 
 {% if not interactions %}
-  <p class="muted">No interactions yet. <a href="{{ url_for('claude_review') }}">Get a review →</a></p>
+  <p class="muted mt-5">No interactions yet. <a href="{{ url_for('claude_review') }}">Get a review →</a></p>
 {% endif %}
 
 {% for ai in interactions %}
-  <section class="card">
-    <div style="display:flex;align-items:baseline;gap:0.7rem;flex-wrap:wrap;">
-      <h2 style="margin:0;">#{{ ai.id }}</h2>
-      <span class="muted">{{ ai.created_at }}</span>
-      <span class="status status-{{ 'completed' if ai.status == 'applied' else 'skipped' }}">
+  <section class="card mt-4">
+    <div class="row">
+      <h2 class="no-grow">#{{ ai.id }}</h2>
+      <span class="muted small no-grow numeric">{{ ai.created_at }}</span>
+      <span class="status status-{{ 'completed' if ai.status == 'applied' else 'skipped' }} no-grow">
         {{ ai.status }}
       </span>
-      <span style="margin-left:auto;">
+      <span class="spread">
         {% if ai.status == 'applied' %}
           <form method="post" action="{{ url_for('claude_rollback', ai_id=ai.id) }}"
-                style="display:inline;"
+                class="inline-form"
                 onsubmit="return confirm('Roll back interaction #{{ ai.id }}? This restores prior state.');">
             <button class="btn btn-secondary" type="submit">Roll back</button>
           </form>
@@ -40,9 +39,8 @@
     </div>
 
     {% set p = ai.parsed_json %}
-    {% set s = ai.snapshot %}
 
-    <ul class="diff">
+    <ul class="diff mt-3">
       {% for r in p.get('revisions', []) or [] %}
         <li class="diff-entry diff-revision_add">
           <div class="diff-summary"><span class="kind-tag">revision</span> {{ r.date }} — {{ r.change }}</div>
@@ -81,9 +79,9 @@
     </ul>
 
     {% if p.get('narrative') %}
-      <details>
+      <details class="mt-3">
         <summary class="muted">narrative</summary>
-        <div class="narrative">{{ p.narrative }}</div>
+        <div class="narrative mt-2">{{ p.narrative }}</div>
       </details>
     {% endif %}
   </section>

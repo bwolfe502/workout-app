@@ -1,37 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Claude review — workout-app{% endblock %}
+{% block title %}Claude review — LIFT{% endblock %}
 
 {% block content %}
 <h1>Claude review</h1>
-<p class="muted">
-  Paste the block below into Claude (any interface). Claude returns a fenced
+<p class="muted mt-2">
+  Paste the block below into Claude. Claude returns a fenced
   <code>json</code> block which you bring back to
-  <a href="{{ url_for('claude_apply_get') }}">/claude/apply</a>
-  for diff preview + apply.
+  <a href="{{ url_for('claude_apply_get') }}">/claude/apply</a> for diff preview + apply.
 </p>
 
-<form method="get" action="{{ url_for('claude_review') }}" class="card">
+<form method="get" action="{{ url_for('claude_review') }}" class="card mt-5">
   <label for="trigger">Trigger / prompt context
-    <textarea id="trigger" name="trigger" rows="3"
-              style="width:100%;background:rgba(0,0,0,0.2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.55rem;">{{ trigger }}</textarea>
+    <textarea id="trigger" name="trigger" rows="3" class="mono">{{ trigger }}</textarea>
   </label>
-  <p style="margin-top:0.5rem;">
-    <button class="btn btn-secondary" type="submit">Regenerate bundle</button>
-  </p>
+  <button class="btn btn-secondary mt-3" type="submit">Regenerate bundle</button>
 </form>
 
 <section class="card">
-  <div style="display:flex;align-items:baseline;gap:0.75rem;flex-wrap:wrap;">
-    <h2 style="margin:0;flex:1;">Bundle</h2>
-    <button class="btn btn-primary" type="button" id="copy-bundle"
-            data-target="bundle-text">Copy to clipboard</button>
-    <span class="muted" id="copy-status"></span>
+  <div class="row">
+    <h2 class="grow">Bundle</h2>
+    <button class="btn btn-primary no-grow" type="button" id="copy-bundle"
+            data-target="bundle-text">Copy</button>
+    <span class="muted small no-grow" id="copy-status"></span>
   </div>
-  <textarea id="bundle-text" readonly rows="20"
-            style="width:100%;margin-top:0.6rem;background:rgba(0,0,0,0.25);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.65rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.85em;line-height:1.45;">{{ bundle }}</textarea>
+  <textarea id="bundle-text" readonly rows="20" class="mono mt-3">{{ bundle }}</textarea>
 </section>
 
-<p>
+<p class="mt-4">
   <a class="btn btn-secondary" href="{{ url_for('claude_apply_get') }}">When you have Claude's response: paste it at /claude/apply →</a>
 </p>
 

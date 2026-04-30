@@ -1,11 +1,4 @@
-{# One exercise's full state for the live view.
-
-   Variables:
-     p                 — prescribed row joined with exercises
-     sess              — session row
-     sets_by_prescribed (optional) — {prescribed_id: [set_rows]} from server
-     just_logged       (optional bool) — set when the swap should kick the rest timer
-#}
+{# One exercise's full state for the live view. #}
 {% set existing = (sets_by_prescribed.get(p.prescribed_id, []) if sets_by_prescribed else []) %}
 {% set non_status_sets = existing|selectattr('status', 'equalto', 'completed')|list %}
 {% set last_set = non_status_sets[-1] if non_status_sets else None %}
@@ -32,32 +25,16 @@
     {% endif %}
   </header>
 
-  <div class="target-strip" role="group" aria-label="Prescribed target">
-    <div class="cell">
-      <span class="label">Sets</span>
-      <span class="value">{{ p.sets_planned }}</span>
-    </div>
-    <div class="cell">
-      <span class="label">Reps</span>
-      <span class="value">{{ format_reps(p) }}</span>
-    </div>
-    <div class="cell">
-      <span class="label">Load</span>
-      <span class="value">
-        {% if p.is_bodyweight or p.notation == 'bw' %}
-          BW
-        {% elif p.weight_lb is not none %}
-          {{ '%g' % p.weight_lb }}<span class="unit">{% if p.notation == 'per_hand' %}lb/h{% else %}lb{% endif %}</span>
-        {% else %}—{% endif %}
-      </span>
-    </div>
-    <div class="cell">
-      <span class="label">RIR</span>
-      <span class="value">{{ p.rir_target if p.rir_target is not none else '—' }}</span>
-    </div>
-  </div>
-
-  {% if p.default_tempo %}<p class="target-tempo">Tempo {{ p.default_tempo }}</p>{% endif %}
+  <p class="target-line">
+    {{ p.sets_planned }}<span class="x">×</span>{{ format_reps(p) }}
+    {% if p.is_bodyweight or p.notation == 'bw' %}
+      <span class="at">@</span>BW
+    {% elif p.weight_lb is not none %}
+      <span class="at">@</span>{{ '%g' % p.weight_lb }} lb{% if p.notation == 'per_hand' %}/h{% endif %}
+    {% endif %}
+    {% if p.rir_target is not none %}<span class="sep">·</span><span class="meta">RIR {{ p.rir_target }}</span>{% endif %}
+    {% if p.default_tempo %}<span class="sep">·</span><span class="meta">{{ p.default_tempo }}</span>{% endif %}
+  </p>
 
   {% if non_status_sets %}
     <div class="sets-logged">
@@ -77,7 +54,7 @@
           hx-target="#exercise-block-{{ p.prescribed_id }}"
           hx-swap="outerHTML">
       <div class="field">
-        <span class="field-label">Weight (lb){% if p.notation == 'per_hand' %} / hand{% endif %}</span>
+        <span class="field-label">Weight {% if p.notation == 'per_hand' %}<span class="dim">/hand</span>{% endif %}</span>
         <div class="stepper">
           <button type="button" data-step="{{ -step }}" data-target="weight-{{ p.prescribed_id }}" aria-label="decrease weight">−</button>
           <input id="weight-{{ p.prescribed_id }}" name="weight" type="number"

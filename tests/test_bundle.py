@@ -166,7 +166,8 @@ def test_claude_page_renders(client) -> None:
     assert "Claude review" in body
     assert "Bundle" in body
     assert "# Workout review request" in body
-    assert "Copy to clipboard" in body
+    # Copy button text was shortened from "Copy to clipboard" → "Copy"
+    assert 'id="copy-bundle"' in body
 
 
 def test_claude_page_uses_default_trigger_when_unset(client) -> None:

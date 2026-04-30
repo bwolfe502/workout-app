@@ -45,7 +45,7 @@
           {% if i.action %}<div class="muted">{{ i.action }}</div>{% endif %}
           <div class="muted issue-foot">
             opened {{ i.opened_at }}
-            <form method="post" action="{{ url_for('issues_close', issue_id=i.id) }}" style="display:inline">
+            <form method="post" action="{{ url_for('issues_close', issue_id=i.id) }}" class="inline-form">
               <button class="btn btn-secondary" type="submit">Close</button>
             </form>
           </div>
@@ -70,7 +70,7 @@
           {% if i.action %}<div class="muted">{{ i.action }}</div>{% endif %}
           <div class="muted issue-foot">
             opened {{ i.opened_at }} · closed {{ i.closed_at }}
-            <form method="post" action="{{ url_for('issues_reopen', issue_id=i.id) }}" style="display:inline">
+            <form method="post" action="{{ url_for('issues_reopen', issue_id=i.id) }}" class="inline-form">
               <button class="btn btn-secondary" type="submit">Reopen</button>
             </form>
           </div>

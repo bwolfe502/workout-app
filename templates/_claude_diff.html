@@ -1,0 +1,19 @@
+{# Diff render shared by /claude/apply preview + applied confirmation. #}
+<ul class="diff">
+  {% for entry in diff.entries %}
+    <li class="diff-entry diff-{{ entry.kind }}{% if entry.error %} diff-error{% endif %}">
+      <div class="diff-summary">
+        <span class="kind-tag">{{ entry.kind.replace('_', ' ') }}</span>
+        {{ entry.summary }}
+      </div>
+      {% if entry.details %}
+        <ul class="diff-details">
+          {% for d in entry.details %}<li>{{ d }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% if entry.error %}
+        <div class="diff-error-msg">⚠ {{ entry.error }}</div>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>

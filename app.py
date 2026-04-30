@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 
+import claude_apply
 import claude_bundle
 import db
 import queries
@@ -163,6 +164,47 @@ def create_app(config: dict | None = None) -> Flask:
             trigger=trigger,
             mesocycle=meso,
         )
+
+    @app.get("/claude/apply")
+    def claude_apply_get():
+        return render_template("claude_apply.html",
+                               raw="", diff=None, error=None, applied_id=None)
+
+    @app.post("/claude/apply")
+    def claude_apply_post():
+        conn = db.get_conn()
+        meso = queries.active_mesocycle(conn)
+        if meso is None:
+            return render_template("claude_apply.html", raw="",
+                                   diff=None, error="No active mesocycle.",
+                                   applied_id=None)
+        raw = request.form.get("raw", "")
+        action = request.form.get("action") or "preview"
+        try:
+            json_text = claude_apply.extract_json_block(raw)
+            response = claude_apply.parse_and_validate(json_text)
+            diff = claude_apply.build_diff(conn, response, meso["id"])
+        except claude_apply.ApplyError as e:
+            return render_template("claude_apply.html", raw=raw,
+                                   diff=None, error=str(e), applied_id=None)
+
+        if action == "apply" and not diff.has_errors and not diff.is_empty:
+            try:
+                applied_id = claude_apply.apply(
+                    conn, response, meso["id"],
+                    request_md="(generated bundle, not stored verbatim)",
+                    response_raw=raw,
+                )
+            except claude_apply.ApplyError as e:
+                return render_template("claude_apply.html", raw=raw,
+                                       diff=diff, error=str(e), applied_id=None)
+            return render_template("claude_apply.html", raw="",
+                                   diff=None, error=None, applied_id=applied_id,
+                                   applied_diff=diff)
+
+        # Preview only
+        return render_template("claude_apply.html", raw=raw,
+                               diff=diff, error=None, applied_id=None)
 
     # ---- stats -----------------------------------------------------------
 

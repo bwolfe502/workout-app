@@ -5,7 +5,8 @@
 <h1>Claude review</h1>
 <p class="muted">
   Paste the block below into Claude (any interface). Claude returns a fenced
-  <code>json</code> block which you bring back to <a href="#">/claude/apply</a>
+  <code>json</code> block which you bring back to
+  <a href="{{ url_for('claude_apply_get') }}">/claude/apply</a>
   for diff preview + apply.
 </p>
 
@@ -31,7 +32,7 @@
 </section>
 
 <p>
-  <a class="btn btn-secondary" href="#">When you have Claude's response: paste it at /claude/apply →</a>
+  <a class="btn btn-secondary" href="{{ url_for('claude_apply_get') }}">When you have Claude's response: paste it at /claude/apply →</a>
 </p>
 
 <script>

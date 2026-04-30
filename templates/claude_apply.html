@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Apply Claude response — workout-app{% endblock %}
+
+{% block content %}
+<h1>Apply Claude response</h1>
+<p class="muted">
+  Paste Claude's reply (the whole thing — the parser will pull out the
+  fenced <code>json</code> block). Click Preview to see the diff. Nothing
+  is written until you click Apply.
+</p>
+
+{% if applied_id %}
+  <section class="card" style="border-color:var(--status-completed);">
+    <h2>Applied</h2>
+    <p>ai_interactions row #{{ applied_id }} written.
+       <a href="#">/claude/log</a> to review or roll back.</p>
+    {% if applied_diff %}
+      <h3 style="margin-top:0.75rem;">Changes applied</h3>
+      {% include "_claude_diff.html" with context %}
+    {% endif %}
+    <p><a class="btn btn-secondary" href="{{ url_for('claude_apply_get') }}">Apply another</a></p>
+  </section>
+{% else %}
+
+<form method="post" action="{{ url_for('claude_apply_post') }}" class="card">
+  <label for="raw">Claude response
+    <textarea id="raw" name="raw" rows="14"
+              placeholder="Paste the whole reply, including the ```json fence."
+              style="width:100%;background:rgba(0,0,0,0.25);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:0.65rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:0.85em;">{{ raw }}</textarea>
+  </label>
+  <p style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:0.6rem;">
+    <button class="btn btn-secondary" type="submit" name="action" value="preview">Preview</button>
+    {% if diff and not diff.has_errors and not diff.is_empty %}
+      <button class="btn btn-primary" type="submit" name="action" value="apply">Apply</button>
+    {% endif %}
+  </p>
+</form>
+
+{% if error %}
+  <section class="card" style="border-color:#ef5350;">
+    <h2 style="color:#ef5350;">Error</h2>
+    <pre class="narrative">{{ error }}</pre>
+  </section>
+{% endif %}
+
+{% if diff %}
+  <section class="card">
+    <h2>Diff preview</h2>
+    {% if diff.is_empty %}
+      <p class="muted">No structural changes — only narrative.</p>
+    {% else %}
+      {% include "_claude_diff.html" with context %}
+    {% endif %}
+    {% if diff.narrative %}
+      <h3 style="margin-top:1rem;">Narrative from Claude</h3>
+      <div class="narrative">{{ diff.narrative }}</div>
+    {% endif %}
+  </section>
+{% endif %}
+{% endif %}
+{% endblock %}

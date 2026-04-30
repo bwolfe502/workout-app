@@ -51,9 +51,15 @@ First-time install on the droplet:
 ```bash
 ssh root@104.236.8.9
 git clone https://github.com/bwolfe502/workout-app.git /opt/workout-app
+# Copy the three source md files into /opt/workout-app/seed-source/ first
+# (or skip; deploy.sh seeds only if the dir is present).
 bash /opt/workout-app/deploy/deploy.sh first-install
 # follow the printed first-login URL (contains the generated token)
-certbot --nginx -d lift.1490.sh
+certbot --nginx -d lift.1490.sh --redirect
+# Then replace the placeholder `location /` block in
+# /etc/nginx/sites-available/lift.1490.sh with proxy_pass to 127.0.0.1:8092
+# (see deploy/lift.1490.sh.nginx for the post-certbot template), then
+# `nginx -t && systemctl reload nginx`.
 ```
 
 Updates:

@@ -21,6 +21,9 @@ log() { printf '[deploy] %s\n' "$*"; }
 cd "$APP_DIR"
 
 if [[ "${1:-}" == "first-install" ]]; then
+    log "ensuring system prereqs (sqlite3 CLI, python3-venv)"
+    apt-get install -y -qq sqlite3 python3-venv >/dev/null
+
     log "creating user $USER_NAME (if not present)"
     id -u "$USER_NAME" >/dev/null 2>&1 || useradd --system --home-dir "$APP_DIR" --shell /usr/sbin/nologin "$USER_NAME"
 
@@ -50,7 +53,11 @@ chown -R "$USER_NAME:$USER_NAME" "$APP_DIR"
 
 log "seed (only if mesocycle 1 missing — aborts otherwise)"
 if [[ -d "$APP_DIR/seed-source" ]]; then
-    sudo -u "$USER_NAME" "$APP_DIR/venv/bin/python" -m seed --source-dir "$APP_DIR/seed-source" || \
+    # cd is required: `python -m seed` resolves modules from cwd, not from
+    # the venv's site-packages.
+    (cd "$APP_DIR" && sudo -u "$USER_NAME" "$APP_DIR/venv/bin/python" -m seed \
+        --source-dir "$APP_DIR/seed-source" \
+        --db "$APP_DIR/data/gym.db") || \
         log "  seed skipped (already present or seed-source missing)"
 else
     log "  no seed-source/ directory — skipping (manual seed if needed)"

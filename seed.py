@@ -69,30 +69,185 @@ EXERCISE_ALIASES: dict[str, str] = {
 }
 
 # Per-exercise metadata. Anything not present gets sensible defaults.
+#
+# This is the master exercise catalog: every entry here is seeded into the
+# `exercises` table on `seed --reset`, regardless of whether the active
+# program prescribes it. The in-session "Swap exercise" dropdown ranks
+# substitutes by overlap of `primary_muscles` (with `category` as a
+# tiebreaker), so a fuller catalog here = better substitutions on the fly.
+#
+# Naming conventions for the muscle matcher to work:
+#   chest, back, upper_back, traps, lats
+#   front_delt, side_delt, rear_delt
+#   biceps, triceps, brachialis, forearms
+#   quads, glutes, hamstrings, adductors, abductors, calves
+#   abs, obliques
 EXERCISE_METADATA: dict[str, dict[str, Any]] = {
+    # --- compound push ---
     "Incline DB Bench":           dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="per_hand", default_tempo="3-0-1-0"),
     "Flat DB Bench":              dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="per_hand", default_tempo="3-0-1-0"),
+    "Decline DB Bench":           dict(category="compound_push", primary_muscles="chest,triceps", notation="per_hand"),
+    "BB Bench Press":             dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="total", default_tempo="3-0-1-0"),
+    "Incline BB Bench":           dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="total", default_tempo="3-0-1-0"),
+    "Close-Grip BB Bench":        dict(category="compound_push", primary_muscles="triceps,chest,front_delt", notation="total"),
+    "Smith Machine Bench":        dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="total"),
+    "Machine Chest Press":        dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="total"),
     "Seated DB Shoulder Press":   dict(category="compound_push", primary_muscles="front_delt,side_delt,triceps", notation="per_hand", default_tempo="3-0-1-0"),
+    "Standing BB Overhead Press": dict(category="compound_push", primary_muscles="front_delt,triceps", notation="total"),
+    "Seated BB Shoulder Press":   dict(category="compound_push", primary_muscles="front_delt,triceps", notation="total"),
+    "Arnold Press":               dict(category="compound_push", primary_muscles="front_delt,side_delt,triceps", notation="per_hand"),
+    "Landmine Press":             dict(category="compound_push", primary_muscles="front_delt,side_delt,triceps", notation="per_hand"),
+    "Machine Shoulder Press":     dict(category="compound_push", primary_muscles="front_delt,triceps", notation="total"),
     "Push-Up (feet on floor)":    dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="bw", is_bodyweight=True, default_tempo="3-0-1-0"),
+    "Weighted Push-Up":           dict(category="compound_push", primary_muscles="chest,front_delt,triceps", notation="total", is_bodyweight=True),
+    "Diamond Push-Up":            dict(category="compound_push", primary_muscles="triceps,chest", notation="bw", is_bodyweight=True),
+    "Dip (parallel bars)":        dict(category="compound_push", primary_muscles="chest,triceps,front_delt", notation="bw", is_bodyweight=True),
+    "Weighted Dip":               dict(category="compound_push", primary_muscles="chest,triceps,front_delt", notation="total", is_bodyweight=True),
+
+    # --- compound pull ---
     "Chest-Supported DB Row":     dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="per_hand", default_tempo="2-1-1-0"),
     "Single-Arm DB Row":          dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="per_hand", default_tempo="2-0-1-1"),
-    "Lat Pulldown":               dict(category="compound_pull", primary_muscles="back,biceps", notation="total", default_tempo="2-0-1-1"),
+    "BB Bent-Over Row":           dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="total"),
+    "Pendlay Row":                dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="total"),
+    "T-Bar Row":                  dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="total"),
+    "Meadows Row":                dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="per_hand"),
     "Seated Cable Row (neutral)": dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="total", default_tempo="2-1-1-1"),
+    "Seated Cable Row (wide)":    dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="total"),
+    "Single-Arm Cable Row":       dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="per_hand"),
+    "Inverted Row":               dict(category="compound_pull", primary_muscles="back,rear_delt,biceps", notation="bw", is_bodyweight=True),
+    "Lat Pulldown":               dict(category="compound_pull", primary_muscles="back,biceps", notation="total", default_tempo="2-0-1-1"),
+    "Wide-Grip Lat Pulldown":     dict(category="compound_pull", primary_muscles="back,biceps", notation="total"),
+    "Reverse-Grip Lat Pulldown":  dict(category="compound_pull", primary_muscles="back,biceps", notation="total"),
+    "Single-Arm Lat Pulldown":    dict(category="compound_pull", primary_muscles="back,biceps", notation="per_hand"),
+    "Pull-Up":                    dict(category="compound_pull", primary_muscles="back,biceps", notation="bw", is_bodyweight=True),
+    "Chin-Up":                    dict(category="compound_pull", primary_muscles="back,biceps", notation="bw", is_bodyweight=True),
+    "Neutral-Grip Pull-Up":       dict(category="compound_pull", primary_muscles="back,biceps", notation="bw", is_bodyweight=True),
+    "Weighted Pull-Up":           dict(category="compound_pull", primary_muscles="back,biceps", notation="total", is_bodyweight=True),
+    "Assisted Pull-Up Machine":   dict(category="compound_pull", primary_muscles="back,biceps", notation="total"),
+
+    # --- squat ---
     "BB Back Squat":              dict(category="squat", primary_muscles="quads,glutes", notation="total", default_tempo="3-0-1-0"),
+    "BB Front Squat":             dict(category="squat", primary_muscles="quads,glutes", notation="total"),
     "Heel-Elevated Goblet Squat": dict(category="squat", primary_muscles="quads,glutes", notation="total", default_tempo="3-0-1-0"),
-    "Leg Extension":              dict(category="isolation", primary_muscles="quads", notation="total"),
+    "Goblet Squat":               dict(category="squat", primary_muscles="quads,glutes", notation="total"),
+    "Hack Squat (machine)":       dict(category="squat", primary_muscles="quads,glutes", notation="total"),
+    "Leg Press":                  dict(category="squat", primary_muscles="quads,glutes", notation="total"),
+    "Smith Machine Squat":        dict(category="squat", primary_muscles="quads,glutes", notation="total"),
+    "Belt Squat":                 dict(category="squat", primary_muscles="quads,glutes", notation="total"),
+    "Bulgarian Split Squat":      dict(category="squat", primary_muscles="quads,glutes", notation="per_hand"),
+    "DB Walking Lunge":           dict(category="squat", primary_muscles="quads,glutes", notation="per_hand"),
+    "DB Reverse Lunge":           dict(category="squat", primary_muscles="quads,glutes", notation="per_hand"),
+    "DB Step-Up":                 dict(category="squat", primary_muscles="quads,glutes", notation="per_hand"),
+
+    # --- hinge ---
     "Barbell RDL":                dict(category="hinge", primary_muscles="hamstrings,glutes,back", notation="total", default_tempo="3-0-1-0"),
     "DB Romanian Deadlift":       dict(category="hinge", primary_muscles="hamstrings,glutes,back", notation="per_hand", default_tempo="3-0-1-0"),
+    "Single-Leg DB RDL":          dict(category="hinge", primary_muscles="hamstrings,glutes", notation="per_hand"),
+    "Conventional BB Deadlift":   dict(category="hinge", primary_muscles="hamstrings,glutes,back", notation="total"),
+    "Sumo BB Deadlift":           dict(category="hinge", primary_muscles="glutes,hamstrings,back", notation="total"),
+    "Trap Bar Deadlift":          dict(category="hinge", primary_muscles="quads,glutes,hamstrings,back", notation="total"),
+    "BB Hip Thrust":              dict(category="hinge", primary_muscles="glutes,hamstrings", notation="total"),
+    "DB Hip Thrust":              dict(category="hinge", primary_muscles="glutes,hamstrings", notation="total"),
+    "Glute Bridge":               dict(category="hinge", primary_muscles="glutes", notation="total"),
+    "BB Good Morning":            dict(category="hinge", primary_muscles="hamstrings,glutes,back", notation="total"),
+    "Cable Pull-Through":         dict(category="hinge", primary_muscles="glutes,hamstrings", notation="total"),
+    "45° Back Extension":         dict(category="hinge", primary_muscles="glutes,hamstrings,back", notation="bw", is_bodyweight=True),
+    "Reverse Hyperextension":     dict(category="hinge", primary_muscles="glutes,hamstrings", notation="total"),
+    "KB Swing":                   dict(category="hinge", primary_muscles="glutes,hamstrings", notation="total"),
+
+    # --- isolation: chest ---
+    "Flat DB Fly":                dict(category="isolation", primary_muscles="chest", notation="per_hand"),
+    "Incline DB Fly":             dict(category="isolation", primary_muscles="chest", notation="per_hand"),
+    "Cable Crossover (high)":     dict(category="isolation", primary_muscles="chest", notation="total"),
+    "Cable Crossover (mid)":      dict(category="isolation", primary_muscles="chest", notation="total"),
+    "Cable Crossover (low)":      dict(category="isolation", primary_muscles="chest,front_delt", notation="total"),
+    "Pec Deck":                   dict(category="isolation", primary_muscles="chest", notation="total"),
+
+    # --- isolation: back / lats / traps ---
+    "Cable Straight-Arm Pulldown": dict(category="isolation", primary_muscles="back", notation="total"),
+    "DB Pullover":                dict(category="isolation", primary_muscles="back,chest", notation="total"),
+    "Cable Pullover (rope)":      dict(category="isolation", primary_muscles="back", notation="total"),
+    "BB Shrug":                   dict(category="isolation", primary_muscles="traps", notation="total"),
+    "DB Shrug":                   dict(category="isolation", primary_muscles="traps", notation="per_hand"),
+
+    # --- isolation: shoulders ---
     "DB Lateral Raise":           dict(category="isolation", primary_muscles="side_delt", notation="per_hand", default_tempo="2-1-1-0"),
+    "Cable Lateral Raise":        dict(category="isolation", primary_muscles="side_delt", notation="per_hand"),
+    "Machine Lateral Raise":      dict(category="isolation", primary_muscles="side_delt", notation="total"),
+    "Leaning DB Lateral Raise":   dict(category="isolation", primary_muscles="side_delt", notation="per_hand"),
+    "DB Front Raise":             dict(category="isolation", primary_muscles="front_delt", notation="per_hand"),
+    "Cable Front Raise":          dict(category="isolation", primary_muscles="front_delt", notation="total"),
+    "Plate Front Raise":          dict(category="isolation", primary_muscles="front_delt", notation="total"),
     "Cable Face Pull":            dict(category="isolation", primary_muscles="rear_delt,upper_back", notation="total", default_tempo="2-1-1-1"),
+    "Bent-Over DB Reverse Fly":   dict(category="isolation", primary_muscles="rear_delt,upper_back", notation="per_hand"),
+    "Reverse Pec Deck":           dict(category="isolation", primary_muscles="rear_delt,upper_back", notation="total"),
+    "Cable Reverse Fly":          dict(category="isolation", primary_muscles="rear_delt,upper_back", notation="per_hand"),
+
+    # --- isolation: biceps / brachialis / forearms ---
     "DB Curl":                    dict(category="isolation", primary_muscles="biceps", notation="per_hand", default_tempo="2-0-1-0"),
     "DB Hammer Curl":             dict(category="isolation", primary_muscles="biceps,brachialis", notation="per_hand", default_tempo="2-0-1-0"),
     "EZ-Bar Curl":                dict(category="isolation", primary_muscles="biceps", notation="total"),
+    "BB Curl":                    dict(category="isolation", primary_muscles="biceps", notation="total"),
+    "Incline DB Curl":            dict(category="isolation", primary_muscles="biceps", notation="per_hand"),
+    "Preacher Curl":              dict(category="isolation", primary_muscles="biceps", notation="total"),
+    "DB Preacher Curl":           dict(category="isolation", primary_muscles="biceps", notation="per_hand"),
+    "Cable Curl":                 dict(category="isolation", primary_muscles="biceps", notation="total"),
+    "Cable Hammer Curl (rope)":   dict(category="isolation", primary_muscles="biceps,brachialis", notation="total"),
+    "Spider Curl":                dict(category="isolation", primary_muscles="biceps", notation="per_hand"),
+    "Concentration Curl":         dict(category="isolation", primary_muscles="biceps", notation="per_hand"),
+    "Zottman Curl":               dict(category="isolation", primary_muscles="biceps,brachialis,forearms", notation="per_hand"),
+    "Reverse-Grip BB Curl":       dict(category="isolation", primary_muscles="forearms,biceps", notation="total"),
+    "Machine Bicep Curl":         dict(category="isolation", primary_muscles="biceps", notation="total"),
+    "BB Wrist Curl":              dict(category="isolation", primary_muscles="forearms", notation="total"),
+    "BB Reverse Wrist Curl":      dict(category="isolation", primary_muscles="forearms", notation="total"),
+    "Farmer's Carry":             dict(category="isolation", primary_muscles="forearms,traps,abs", notation="per_hand"),
+
+    # --- isolation: triceps ---
     "Triceps Pushdown":           dict(category="isolation", primary_muscles="triceps", notation="total", default_tempo="2-1-1-0"),
+    "Rope Triceps Pushdown":      dict(category="isolation", primary_muscles="triceps", notation="total"),
+    "V-Bar Triceps Pushdown":     dict(category="isolation", primary_muscles="triceps", notation="total"),
     "Overhead DB Triceps Ext":    dict(category="isolation", primary_muscles="triceps", notation="per_hand"),
+    "Cable Overhead Triceps Ext": dict(category="isolation", primary_muscles="triceps", notation="total"),
+    "Single-Arm Cable Triceps Ext": dict(category="isolation", primary_muscles="triceps", notation="per_hand"),
+    "Skull Crusher (EZ-bar)":     dict(category="isolation", primary_muscles="triceps", notation="total"),
+    "Skull Crusher (DB)":         dict(category="isolation", primary_muscles="triceps", notation="per_hand"),
+    "JM Press":                   dict(category="isolation", primary_muscles="triceps", notation="total"),
+    "French Press":               dict(category="isolation", primary_muscles="triceps", notation="total"),
+    "Triceps Kickback":           dict(category="isolation", primary_muscles="triceps", notation="per_hand"),
+    "Bench Dip":                  dict(category="isolation", primary_muscles="triceps", notation="bw", is_bodyweight=True),
+    "Machine Triceps Extension":  dict(category="isolation", primary_muscles="triceps", notation="total"),
+
+    # --- isolation: legs (quads / hams / glutes / calves / hips) ---
+    "Leg Extension":              dict(category="isolation", primary_muscles="quads", notation="total"),
+    "Single-Leg Leg Extension":   dict(category="isolation", primary_muscles="quads", notation="per_hand"),
+    "Sissy Squat":                dict(category="isolation", primary_muscles="quads", notation="bw", is_bodyweight=True),
+    "Lying Leg Curl":             dict(category="isolation", primary_muscles="hamstrings", notation="total"),
+    "Seated Leg Curl":            dict(category="isolation", primary_muscles="hamstrings", notation="total"),
+    "Standing Leg Curl":          dict(category="isolation", primary_muscles="hamstrings", notation="per_hand"),
+    "Nordic Curl":                dict(category="isolation", primary_muscles="hamstrings", notation="bw", is_bodyweight=True),
+    "Cable Glute Kickback":       dict(category="isolation", primary_muscles="glutes", notation="per_hand"),
+    "Hip Abduction Machine":      dict(category="isolation", primary_muscles="glutes,abductors", notation="total"),
+    "Hip Adduction Machine":      dict(category="isolation", primary_muscles="adductors", notation="total"),
     "Standing Calf Raise":        dict(category="isolation", primary_muscles="calves", notation="total"),
+    "Seated Calf Raise":          dict(category="isolation", primary_muscles="calves", notation="total"),
+    "Donkey Calf Raise":          dict(category="isolation", primary_muscles="calves", notation="total"),
+    "Single-Leg DB Calf Raise":   dict(category="isolation", primary_muscles="calves", notation="per_hand"),
+    "Leg Press Calf Raise":       dict(category="isolation", primary_muscles="calves", notation="total"),
+    "Smith Machine Calf Raise":   dict(category="isolation", primary_muscles="calves", notation="total"),
+
+    # --- core ---
     "Hanging Leg Raise":          dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
     "Lying Leg Raise":            dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
+    "Captain's Chair Knee Raise": dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
+    "Reverse Crunch":             dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
+    "Cable Crunch":               dict(category="core", primary_muscles="abs", notation="total"),
+    "Decline Sit-Up":             dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
+    "Ab Wheel Rollout":           dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
+    "Plank":                      dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
+    "Side Plank":                 dict(category="core", primary_muscles="obliques,abs", notation="bw", is_bodyweight=True),
+    "Pallof Press":               dict(category="core", primary_muscles="obliques,abs", notation="total"),
+    "Hollow Hold":                dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
+    "Dead Bug":                   dict(category="core", primary_muscles="abs", notation="bw", is_bodyweight=True),
 }
 
 
@@ -853,6 +1008,12 @@ def write_seed(conn, data: SeedData) -> dict[str, int]:
     """Insert all parsed data inside a transaction. Returns counts."""
     counts = {"sessions": 0, "prescribed": 0, "sets": 0, "extras": 0, "exercises": 0,
               "revisions": 0, "issues": 0, "workout_c": 0}
+
+    # Master exercise catalog: pre-seed every entry in EXERCISE_METADATA so
+    # the in-session swap dropdown can suggest substitutes that aren't part
+    # of the current program. Lazy upserts below will reuse these rows.
+    for ex_name in EXERCISE_METADATA:
+        _upsert_exercise(conn, ex_name)
 
     # Mesocycle
     cur = conn.execute(

@@ -130,7 +130,8 @@
     <details class="exercise-extras">
       <summary>More — swap exercise · flag an issue</summary>
 
-      {% if exercises_for_swap %}
+      {% set substitutes = exercises_for_swap.get(p.exercise_id, []) if exercises_for_swap else [] %}
+      {% if substitutes %}
         <form class="extras-form"
               hx-post="{{ url_for('swap_exercise', session_id=sess.id, prescribed_id=p.prescribed_id) }}"
               hx-target="#exercise-block-{{ p.prescribed_id }}"
@@ -138,12 +139,13 @@
               hx-confirm="Swap '{{ p.exercise_name }}' for the selected exercise? Sets you've already logged will stay attached to this slot.">
           <label class="extras-label" for="swap-{{ p.prescribed_id }}">
             Substitute exercise
-            <span class="muted small">— sets/reps/weight stay; you can override per set.</span>
+            <span class="muted small">— ranked by shared target muscles. Sets/reps/weight stay; you can override per set.</span>
           </label>
           <div class="extras-row">
             <select id="swap-{{ p.prescribed_id }}" name="exercise_id" required>
-              {% for e in exercises_for_swap %}
-                <option value="{{ e.id }}" {% if e.id == p.exercise_id %}selected{% endif %}>
+              <option value="" disabled selected>Pick a substitute…</option>
+              {% for e in substitutes %}
+                <option value="{{ e.id }}">
                   {{ e.name }}{% if e.is_bodyweight %} · BW{% elif e.notation == 'per_hand' %} · /hand{% endif %}
                 </option>
               {% endfor %}

@@ -309,3 +309,37 @@ def test_live_view_renders_extras_section(client, app_and_db) -> None:
     assert "Flag discomfort or issue" in body
     # Swap dropdown is wired to the swap endpoint
     assert "/exercise/" in body and "/swap" in body
+
+
+def test_similar_exercises_for_ranks_by_muscle_then_category(app_and_db) -> None:
+    """Substitute ranking: shared muscles dominate, same category breaks
+    ties. No-muscle-overlap candidates are excluded entirely."""
+    import queries
+
+    conn = _open_conn(app_and_db[1])
+    src_id = conn.execute(
+        "SELECT id FROM exercises WHERE name = 'Triceps Pushdown'"
+    ).fetchone()["id"]
+    result = queries.similar_exercises_for(conn, [src_id])
+    names = [r["name"] for r in result[src_id]]
+    conn.close()
+
+    # Source itself is excluded.
+    assert "Triceps Pushdown" not in names
+    # Triceps isolations (same muscle + same category, score 12) outrank
+    # triceps compounds (same muscle, different category, score 10).
+    iso_picks = ["Overhead DB Triceps Ext", "Skull Crusher (EZ-bar)",
+                 "Rope Triceps Pushdown", "Cable Overhead Triceps Ext"]
+    compound_picks = ["Incline DB Bench", "Flat DB Bench",
+                      "Push-Up (feet on floor)", "Seated DB Shoulder Press"]
+    for n in iso_picks + compound_picks:
+        assert n in names, f"{n!r} should be a substitute"
+    last_iso = max(names.index(n) for n in iso_picks)
+    first_compound = min(names.index(n) for n in compound_picks)
+    assert last_iso < first_compound, (
+        "all triceps isolations should rank above any triceps compound"
+    )
+    # No-overlap exercises are filtered out entirely.
+    for unrelated in ("Standing Calf Raise", "Hanging Leg Raise",
+                      "Leg Extension", "DB Curl", "BB Back Squat"):
+        assert unrelated not in names

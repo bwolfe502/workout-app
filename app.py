@@ -130,7 +130,11 @@ def create_app(config: dict | None = None) -> Flask:
         last_time = (
             queries.previous_sets_by_exercise(conn, session_id) if is_live else {}
         )
-        exercises_for_swap = queries.all_exercises(conn) if is_live else []
+        exercises_for_swap = (
+            queries.similar_exercises_for(
+                conn, [p["exercise_id"] for p in prescribed]
+            ) if is_live else {}
+        )
         unaddressed_count = sum(
             1 for p in prescribed if not sets_by_prescribed.get(p["prescribed_id"])
         )
@@ -617,7 +621,9 @@ def _swap_after_mutation(session_id, prescribed_id, action, *, just_logged=False
         sess=sess,
         sets_by_prescribed=sets_by_prescribed,
         last_time=queries.previous_sets_by_exercise(conn, session_id),
-        exercises_for_swap=queries.all_exercises(conn),
+        exercises_for_swap=queries.similar_exercises_for(
+            conn, [refreshed["exercise_id"]]
+        ),
         just_logged=just_logged,
     )
 

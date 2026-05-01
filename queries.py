@@ -188,18 +188,63 @@ def partial_sessions(
     ))
 
 
-def all_exercises(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """Every exercise, alphabetised. Powers the in-session 'Swap exercise'
-    dropdown on the live view. Includes notation/is_bodyweight so the form
-    can hint at unit semantics in the option label.
+def similar_exercises_for(
+    conn: sqlite3.Connection, source_exercise_ids: list[int],
+) -> dict[int, list[sqlite3.Row]]:
+    """For each source exercise id, return ranked plausible substitutes for
+    the in-session 'Swap exercise' dropdown.
+
+    Ranking: candidates must share at least one muscle in `primary_muscles`
+    with the source. Score = 10 * shared_muscle_count + 2 if same category.
+    Tiebreak alphabetical. Self is always excluded.
+
+    Fallback when the source has no muscle metadata: same-category set, or
+    all other exercises if category is also missing — so the dropdown never
+    silently disappears for an exercise we just don't have data on.
     """
-    return list(conn.execute(
+    all_rows = list(conn.execute(
         """
-        SELECT id, name, notation, is_bodyweight, primary_muscles
+        SELECT id, name, notation, is_bodyweight, primary_muscles, category
           FROM exercises
          ORDER BY name COLLATE NOCASE
         """
     ))
+    by_id = {r["id"]: r for r in all_rows}
+    out: dict[int, list[sqlite3.Row]] = {}
+    for src_id in set(source_exercise_ids):
+        src = by_id.get(src_id)
+        if src is None:
+            out[src_id] = []
+            continue
+        src_muscles = _muscle_set(src["primary_muscles"])
+        src_cat = (src["category"] or "").strip()
+        if not src_muscles:
+            others = [r for r in all_rows if r["id"] != src_id]
+            if src_cat:
+                same_cat = [r for r in others if (r["category"] or "") == src_cat]
+                out[src_id] = same_cat or others
+            else:
+                out[src_id] = others
+            continue
+        scored: list[tuple[int, str, sqlite3.Row]] = []
+        for cand in all_rows:
+            if cand["id"] == src_id:
+                continue
+            shared = len(src_muscles & _muscle_set(cand["primary_muscles"]))
+            if shared == 0:
+                continue
+            cat_bonus = 2 if src_cat and (cand["category"] or "") == src_cat else 0
+            score = shared * 10 + cat_bonus
+            scored.append((-score, cand["name"].lower(), cand))
+        scored.sort()
+        out[src_id] = [s[2] for s in scored]
+    return out
+
+
+def _muscle_set(csv: str | None) -> set[str]:
+    if not csv:
+        return set()
+    return {m.strip().lower() for m in csv.split(",") if m.strip()}
 
 
 def open_issues(conn: sqlite3.Connection) -> list[sqlite3.Row]:

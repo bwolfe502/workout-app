@@ -88,4 +88,21 @@
     input.value = Number.isInteger(step) ? String(Math.round(next)) : next.toFixed(1);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
+
+  // Confirm Finish-session if any prescribed exercises are still unaddressed.
+  // Server marks the session 'partial' in that case; the user can resume from
+  // Today, but the friction here prevents accidental early-finish taps.
+  document.addEventListener("submit", (evt) => {
+    const form = evt.target.closest("[data-finish-form]");
+    if (!form) return;
+    const unaddressed = parseInt(form.dataset.unaddressed || "0", 10);
+    if (!unaddressed) return;
+    const total = parseInt(form.dataset.total || "0", 10);
+    const msg = unaddressed === 1
+      ? `1 exercise (of ${total}) hasn't been logged, skipped, or deferred. Finish anyway? It'll save as 'partial' and you can resume from Today.`
+      : `${unaddressed} exercises (of ${total}) haven't been logged, skipped, or deferred. Finish anyway? It'll save as 'partial' and you can resume from Today.`;
+    if (!window.confirm(msg)) {
+      evt.preventDefault();
+    }
+  });
 })();

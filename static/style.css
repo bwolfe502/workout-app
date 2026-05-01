@@ -563,6 +563,43 @@ table.sessions-list td.numeric, table.sessions-list td:nth-child(2) {
 .target-line .meta { color: var(--ink-mid); font-size: 0.84rem; }
 .target-line .sep { color: var(--ink-faint); padding: 0 6px; }
 
+/* ----------- last-time hint (above the form) ----------- */
+
+.last-time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  margin: calc(-1 * var(--s-2)) 0 var(--s-3);
+  padding: 6px 0 8px;
+  border-bottom: 1px dashed var(--hairline-soft);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--ink-mid);
+  letter-spacing: -0.005em;
+}
+.last-time .last-label {
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-mid);
+}
+.last-time .last-when { color: var(--ink-mid); font-weight: 600; }
+.last-time .last-set  { color: var(--ink-soft); }
+.last-time .last-rir  { color: var(--ink-mid); font-size: 0.7rem; }
+.last-time .last-sep  { color: var(--ink-faint); }
+
+.action-hint {
+  margin-top: var(--s-2);
+  font-size: 0.78rem;
+  color: var(--ink-mid);
+  line-height: 1.45;
+}
+.action-hint strong { color: var(--ink-soft); font-weight: 600; }
+
 /* ----------- sets logged (small chips) ----------- */
 
 .sets-logged {

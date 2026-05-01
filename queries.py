@@ -108,6 +108,86 @@ def sets_for_session(conn: sqlite3.Connection, session_id: int) -> dict[int, lis
     return out
 
 
+def previous_sets_by_exercise(
+    conn: sqlite3.Connection, session_id: int
+) -> dict[int, dict[str, Any]]:
+    """For each exercise prescribed in `session_id`, return the most recent
+    prior session that recorded completed sets for it.
+
+    Shape: {exercise_id: {"day_number", "planned_date", "sets": [rows]}}.
+    Empty dict if no priors. Used to render a "Last time: …" hint above each
+    exercise's set form so the lifter doesn't have to scroll back through
+    /sessions to recall what they did.
+    """
+    cur_exercise_ids = [
+        r[0] for r in conn.execute(
+            "SELECT DISTINCT exercise_id FROM prescribed WHERE session_id = ?",
+            (session_id,),
+        )
+    ]
+    out: dict[int, dict[str, Any]] = {}
+    for ex_id in cur_exercise_ids:
+        prior = conn.execute(
+            """
+            SELECT p.id AS prescribed_id,
+                   sess.id AS session_id,
+                   sess.day_number,
+                   sess.planned_date,
+                   sess.completed_at
+              FROM prescribed p
+              JOIN sessions sess ON sess.id = p.session_id
+             WHERE p.exercise_id = ?
+               AND p.session_id != ?
+               AND EXISTS (
+                   SELECT 1 FROM sets s
+                    WHERE s.prescribed_id = p.id AND s.status = 'completed'
+               )
+             ORDER BY COALESCE(sess.completed_at, sess.planned_date) DESC,
+                      sess.id DESC
+             LIMIT 1
+            """,
+            (ex_id, session_id),
+        ).fetchone()
+        if prior is None:
+            continue
+        sets = list(conn.execute(
+            """
+            SELECT set_number, reps_actual, weight_actual, rir_actual
+              FROM sets
+             WHERE prescribed_id = ? AND status = 'completed'
+             ORDER BY set_number
+            """,
+            (prior["prescribed_id"],),
+        ))
+        out[ex_id] = {
+            "session_id": prior["session_id"],
+            "day_number": prior["day_number"],
+            "planned_date": prior["planned_date"],
+            "sets": sets,
+        }
+    return out
+
+
+def partial_sessions(
+    conn: sqlite3.Connection, mesocycle_id: int, limit: int = 3
+) -> list[sqlite3.Row]:
+    """Numbered sessions in this mesocycle marked 'partial'. Surfaced on
+    Today as a recovery hint after an early Mark-complete tap.
+    """
+    return list(conn.execute(
+        """
+        SELECT id, day_number, planned_date, workout_letter, status
+          FROM sessions
+         WHERE mesocycle_id = ?
+           AND day_number IS NOT NULL
+           AND status = 'partial'
+         ORDER BY day_number DESC
+         LIMIT ?
+        """,
+        (mesocycle_id, limit),
+    ))
+
+
 def open_issues(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return list(conn.execute(
         """

@@ -36,6 +36,17 @@
     {% if p.default_tempo %}<span class="sep">·</span><span class="meta">{{ p.default_tempo }}</span>{% endif %}
   </p>
 
+  {% set last = (last_time.get(p.exercise_id) if last_time else None) %}
+  {% if last and last.sets %}
+    <p class="last-time">
+      <span class="last-label">Last time</span>
+      {% if last.day_number %}<span class="last-when">S{{ last.day_number }}</span>{% endif %}
+      {% for s in last.sets %}
+        <span class="last-set">{{ s.reps_actual or '—' }}×{% if s.weight_actual is not none %}{{ '%g' % s.weight_actual }}{% else %}BW{% endif %}{% if s.rir_actual is not none %} <span class="last-rir">RIR{{ s.rir_actual }}</span>{% endif %}</span>{% if not loop.last %}<span class="last-sep">·</span>{% endif %}
+      {% endfor %}
+    </p>
+  {% endif %}
+
   {% if non_status_sets %}
     <div class="sets-logged">
       {% for s in non_status_sets %}
@@ -87,13 +98,21 @@
 
     <div class="action-row">
       <form hx-post="{{ url_for('skip_exercise', session_id=sess.id, prescribed_id=p.prescribed_id) }}"
-            hx-target="#exercise-block-{{ p.prescribed_id }}" hx-swap="outerHTML">
-        <button class="btn btn-secondary" type="submit">Skip</button>
+            hx-target="#exercise-block-{{ p.prescribed_id }}" hx-swap="outerHTML"
+            hx-confirm="Skip this exercise for this session? Any logged sets will be cleared.">
+        <button class="btn btn-secondary" type="submit"
+                title="Skip — not doing this today, no replacement.">Skip</button>
       </form>
       <form hx-post="{{ url_for('defer_exercise', session_id=sess.id, prescribed_id=p.prescribed_id) }}"
-            hx-target="#exercise-block-{{ p.prescribed_id }}" hx-swap="outerHTML">
-        <button class="btn btn-secondary" type="submit">Defer</button>
+            hx-target="#exercise-block-{{ p.prescribed_id }}" hx-swap="outerHTML"
+            hx-confirm="Defer this exercise? Any logged sets will be cleared.">
+        <button class="btn btn-secondary" type="submit"
+                title="Defer — come back to this later (in a future session).">Defer</button>
       </form>
     </div>
+    <p class="action-hint muted small">
+      <strong>Skip</strong> drops it for today. <strong>Defer</strong> flags it
+      to come back to later.
+    </p>
   {% endif %}
 </section>

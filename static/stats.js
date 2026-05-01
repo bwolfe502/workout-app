@@ -12,8 +12,14 @@
   ready(function () {
     if (typeof Chart === "undefined" || !window.__statsData) return;
 
-    Chart.defaults.color = "#cfd4dc";
-    Chart.defaults.borderColor = "rgba(255,255,255,0.08)";
+    // Theme-aware defaults: read the live ink/hairline tokens off :root so
+    // chart text stays legible whether the user is in light (cream) or dark
+    // mode. Falling back to safe values if the CSS isn't available yet.
+    const css = getComputedStyle(document.documentElement);
+    const ink = css.getPropertyValue("--ink-soft").trim() || "#4A463F";
+    const grid = css.getPropertyValue("--hairline").trim() || "rgba(0,0,0,0.08)";
+    Chart.defaults.color = ink;
+    Chart.defaults.borderColor = grid;
 
     const data = window.__statsData;
     drawVolume(data);

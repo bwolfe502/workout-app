@@ -64,11 +64,14 @@ def create_app(config: dict | None = None) -> Flask:
         next_prescribed = (
             queries.prescribed_for_session(conn, next_sess["id"]) if next_sess else []
         )
+        partials = queries.partial_sessions(conn, meso["id"]) if meso else []
         return render_template(
             "home.html",
             mesocycle=meso,
             next_sess=next_sess,
             next_prescribed=next_prescribed,
+            partials=partials,
+            today=date.today().isoformat(),
             issues=queries.open_issues(conn),
             weigh_in=queries.last_weigh_in(conn),
         )
@@ -124,11 +127,19 @@ def create_app(config: dict | None = None) -> Flask:
             live_opt_in and sess["status"] in ("partial", "extra")
         )
         template = "session_live.html" if is_live else "session_detail.html"
+        last_time = (
+            queries.previous_sets_by_exercise(conn, session_id) if is_live else {}
+        )
+        unaddressed_count = sum(
+            1 for p in prescribed if not sets_by_prescribed.get(p["prescribed_id"])
+        )
         return render_template(
             template,
             sess=sess,
             prescribed=prescribed,
             sets_by_prescribed=sets_by_prescribed,
+            last_time=last_time,
+            unaddressed_count=unaddressed_count,
         )
 
     # ---- htmx mutations on the live view ---------------------------------

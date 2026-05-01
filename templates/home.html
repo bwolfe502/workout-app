@@ -4,15 +4,19 @@
 {% block content %}
 {% if next_sess %}
   <section class="today">
-    <p class="eyebrow">{{ mesocycle.name if mesocycle else 'Today' }}</p>
+    <p class="eyebrow">
+      {{ mesocycle.name if mesocycle else 'Today' }}
+      <span class="sep">·</span> {{ today }}
+    </p>
     <h1>
       Session <span class="accent">{{ next_sess.day_number }}</span>
       <span class="dim" style="font-weight:600;">/ Workout {{ next_sess.workout_letter }}</span>
     </h1>
     <p class="meta">
-      {% if next_sess.planned_date %}{{ next_sess.planned_date }}{% endif %}
+      {% if next_sess.planned_date %}Planned {{ next_sess.planned_date }}{% endif %}
       {% if next_sess.planned_date and next_prescribed %}<span class="sep">·</span>{% endif %}
       {% if next_prescribed %}{{ next_prescribed|length }} exercises{% endif %}
+      {% if next_sess.status == 'in_progress' %}<span class="sep">·</span><span class="status status-in_progress">in progress</span>{% endif %}
     </p>
 
     {% if next_prescribed %}
@@ -33,13 +37,43 @@
     {% endif %}
 
     <a class="btn btn-primary start-cta" href="{{ url_for('session_detail', session_id=next_sess.id) }}">
-      Start session
+      {% if next_sess.status == 'in_progress' %}Continue session{% else %}Start session{% endif %}
     </a>
+  </section>
+{% elif mesocycle %}
+  <section class="card">
+    <h2>All sessions complete</h2>
+    <p class="muted">No upcoming session in <strong>{{ mesocycle.name }}</strong>.
+       Open <a href="{{ url_for('sessions') }}">Log</a> to revisit any session, or
+       <a href="{{ url_for('claude_review') }}">request a review</a>.</p>
   </section>
 {% else %}
   <section class="card">
-    <h2>All sessions complete</h2>
-    <p class="muted">No upcoming session in this mesocycle.</p>
+    <h2>No active program</h2>
+    <p class="muted">Seed a mesocycle (run <code>python -m seed</code> with your
+       source files) or add one via the Claude review loop. Once an active
+       mesocycle exists, the next session will appear here.</p>
+  </section>
+{% endif %}
+
+{% if partials %}
+  <section class="card">
+    <h2>Resume a partial session</h2>
+    <p class="muted small">Earlier sessions you marked complete with gaps. Tap to keep logging.</p>
+    <ul class="issues">
+      {% for s in partials %}
+        <li>
+          <div class="issue-head">
+            <strong>Session {{ s.day_number }}{% if s.workout_letter %} — Workout {{ s.workout_letter }}{% endif %}</strong>
+            <span class="status status-partial">partial</span>
+          </div>
+          <div class="muted small">
+            {% if s.planned_date %}{{ s.planned_date }} · {% endif %}
+            <a href="{{ url_for('session_detail', session_id=s.id, live=1) }}">Continue logging →</a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
   </section>
 {% endif %}
 

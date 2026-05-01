@@ -18,16 +18,28 @@
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </head>
 <body>
+  {% set _path = request.path %}
+  {% macro nav_link(endpoint, label, match_prefixes=None) -%}
+    {%- set href = url_for(endpoint) -%}
+    {%- set prefixes = match_prefixes or [href] -%}
+    {%- set is_active = namespace(v=False) -%}
+    {%- for p in prefixes -%}
+      {%- if _path == p or (p != '/' and _path.startswith(p)) -%}
+        {%- set is_active.v = True -%}
+      {%- endif -%}
+    {%- endfor -%}
+    <a href="{{ href }}"{% if is_active.v %} class="active" aria-current="page"{% endif %}>{{ label }}</a>
+  {%- endmacro %}
   <header class="topbar">
     <a class="brand" href="{{ url_for('home') }}">Lift</a>
     <nav class="nav-scroll" aria-label="Primary">
-      <a href="{{ url_for('home') }}">Today</a>
-      <a href="{{ url_for('program') }}">Program</a>
-      <a href="{{ url_for('sessions') }}">Log</a>
-      <a href="{{ url_for('metrics') }}">Body</a>
-      <a href="{{ url_for('issues_list') }}">Notes</a>
-      <a href="{{ url_for('stats') }}">Stats</a>
-      <a href="{{ url_for('claude_review') }}">Review</a>
+      {{ nav_link('home', 'Today') }}
+      {{ nav_link('program', 'Program') }}
+      {{ nav_link('sessions', 'Log', ['/sessions', '/session/']) }}
+      {{ nav_link('metrics', 'Body') }}
+      {{ nav_link('issues_list', 'Notes') }}
+      {{ nav_link('stats', 'Stats') }}
+      {{ nav_link('claude_review', 'Review', ['/claude']) }}
     </nav>
   </header>
 

@@ -199,3 +199,113 @@ def test_log_set_404_on_mismatched_prescribed(client, app_and_db) -> None:
         data={"weight": "35", "reps": "8", "rir": "2"},
     )
     assert r.status_code == 404
+
+
+def test_log_set_persists_notes(client, app_and_db) -> None:
+    """Per-set notes input on the live form gets persisted and shown back
+    on the chip after the htmx swap."""
+    sess_id, prescribed_id = _session_5_first_prescribed(app_and_db[1])
+    r = client.post(
+        f"/session/{sess_id}/exercise/{prescribed_id}/set",
+        data={"weight": "35", "reps": "8", "rir": "2",
+              "notes": "left elbow tweak"},
+    )
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert "left elbow tweak" in body
+    conn = _open_conn(app_and_db[1])
+    row = conn.execute(
+        "SELECT notes FROM sets WHERE prescribed_id = ?", (prescribed_id,),
+    ).fetchone()
+    assert row["notes"] == "left elbow tweak"
+
+
+def test_swap_exercise_repoints_prescribed(client, app_and_db) -> None:
+    """POST /swap updates prescribed.exercise_id and the re-rendered block
+    shows the new exercise name without losing already-logged sets."""
+    sess_id, prescribed_id = _session_5_first_prescribed(app_and_db[1])
+    # Log a set first — those rows must survive the swap.
+    client.post(f"/session/{sess_id}/exercise/{prescribed_id}/set",
+                data={"weight": "35", "reps": "8", "rir": "2"})
+    conn = _open_conn(app_and_db[1])
+    # Pick any other exercise with a different name.
+    cur_ex_id = conn.execute(
+        "SELECT exercise_id FROM prescribed WHERE id = ?", (prescribed_id,),
+    ).fetchone()["exercise_id"]
+    other = conn.execute(
+        "SELECT id, name FROM exercises WHERE id != ? LIMIT 1", (cur_ex_id,),
+    ).fetchone()
+    conn.close()
+    r = client.post(
+        f"/session/{sess_id}/exercise/{prescribed_id}/swap",
+        data={"exercise_id": str(other["id"])},
+    )
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert other["name"] in body
+    conn = _open_conn(app_and_db[1])
+    row = conn.execute(
+        "SELECT exercise_id FROM prescribed WHERE id = ?", (prescribed_id,),
+    ).fetchone()
+    assert row["exercise_id"] == other["id"]
+    # Logged set survives the swap.
+    set_count = conn.execute(
+        "SELECT COUNT(*) AS c FROM sets WHERE prescribed_id = ?", (prescribed_id,),
+    ).fetchone()["c"]
+    assert set_count == 1
+
+
+def test_swap_exercise_400_without_id(client, app_and_db) -> None:
+    sess_id, prescribed_id = _session_5_first_prescribed(app_and_db[1])
+    r = client.post(f"/session/{sess_id}/exercise/{prescribed_id}/swap", data={})
+    assert r.status_code == 400
+
+
+def test_flag_exercise_creates_issue(client, app_and_db) -> None:
+    sess_id, prescribed_id = _session_5_first_prescribed(app_and_db[1])
+    r = client.post(
+        f"/session/{sess_id}/exercise/{prescribed_id}/flag",
+        data={"item": "right shoulder twinge on the eccentric"},
+    )
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert "Issue logged" in body
+    conn = _open_conn(app_and_db[1])
+    row = conn.execute(
+        "SELECT item, status, closed_at FROM issues "
+        "WHERE item LIKE '%shoulder twinge on the eccentric%'"
+    ).fetchone()
+    assert row is not None
+    # Issue text is namespaced with the exercise name so it's filterable.
+    assert "Incline DB Bench" in row["item"]
+    assert row["status"] == "yellow"
+    assert row["closed_at"] is None
+
+
+def test_flag_exercise_empty_returns_hint(client, app_and_db) -> None:
+    sess_id, prescribed_id = _session_5_first_prescribed(app_and_db[1])
+    r = client.post(
+        f"/session/{sess_id}/exercise/{prescribed_id}/flag",
+        data={"item": "   "},
+    )
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert "Type something" in body
+    conn = _open_conn(app_and_db[1])
+    extra = conn.execute(
+        "SELECT COUNT(*) AS c FROM issues WHERE item LIKE 'Incline DB Bench — %'"
+    ).fetchone()["c"]
+    assert extra == 0
+
+
+def test_live_view_renders_extras_section(client, app_and_db) -> None:
+    sess_id, _ = _session_5_first_prescribed(app_and_db[1])
+    r = client.get(f"/session/{sess_id}")
+    body = r.get_data(as_text=True)
+    # Notes input on the set form
+    assert "Add note for this set" in body
+    # Extras: swap dropdown and flag input
+    assert "Substitute exercise" in body
+    assert "Flag discomfort or issue" in body
+    # Swap dropdown is wired to the swap endpoint
+    assert "/exercise/" in body and "/swap" in body

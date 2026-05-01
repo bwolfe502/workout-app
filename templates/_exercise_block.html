@@ -36,6 +36,10 @@
     {% if p.default_tempo %}<span class="sep">·</span><span class="meta">{{ p.default_tempo }}</span>{% endif %}
   </p>
 
+  {% if p.prescribed_notes %}
+    <p class="prescribed-note">{{ p.prescribed_notes }}</p>
+  {% endif %}
+
   {% set last = (last_time.get(p.exercise_id) if last_time else None) %}
   {% if last and last.sets %}
     <p class="last-time">
@@ -54,6 +58,7 @@
           <span class="num">#{{ s.set_number }}</span>
           {{ s.reps_actual }}×{% if s.weight_actual is not none %}{{ '%g' % s.weight_actual }}{% else %}BW{% endif %}
           {% if s.rir_actual is not none %}<span class="rir">RIR{{ s.rir_actual }}</span>{% endif %}
+          {% if s.notes %}<span class="set-note" title="{{ s.notes }}">· {{ s.notes }}</span>{% endif %}
         </span>
       {% endfor %}
     </div>
@@ -91,6 +96,13 @@
                style="--rir-pct: {{ default_rir * 20 }}%"
                oninput="document.getElementById('rir-out-{{ p.prescribed_id }}').textContent = this.value; this.style.setProperty('--rir-pct', (this.value*20)+'%')">
       </div>
+      <details class="set-note-toggle">
+        <summary>+ Add note for this set</summary>
+        <input type="text" name="notes"
+               placeholder="e.g. left elbow tweak, paused last rep, form check"
+               maxlength="240"
+               autocomplete="off">
+      </details>
       <div class="submit-row">
         <button type="submit" class="btn btn-primary">Log set #{{ next_set_number }}</button>
       </div>
@@ -114,5 +126,50 @@
       <strong>Skip</strong> drops it for today. <strong>Defer</strong> flags it
       to come back to later.
     </p>
+
+    <details class="exercise-extras">
+      <summary>More — swap exercise · flag an issue</summary>
+
+      {% if exercises_for_swap %}
+        <form class="extras-form"
+              hx-post="{{ url_for('swap_exercise', session_id=sess.id, prescribed_id=p.prescribed_id) }}"
+              hx-target="#exercise-block-{{ p.prescribed_id }}"
+              hx-swap="outerHTML"
+              hx-confirm="Swap '{{ p.exercise_name }}' for the selected exercise? Sets you've already logged will stay attached to this slot.">
+          <label class="extras-label" for="swap-{{ p.prescribed_id }}">
+            Substitute exercise
+            <span class="muted small">— sets/reps/weight stay; you can override per set.</span>
+          </label>
+          <div class="extras-row">
+            <select id="swap-{{ p.prescribed_id }}" name="exercise_id" required>
+              {% for e in exercises_for_swap %}
+                <option value="{{ e.id }}" {% if e.id == p.exercise_id %}selected{% endif %}>
+                  {{ e.name }}{% if e.is_bodyweight %} · BW{% elif e.notation == 'per_hand' %} · /hand{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-secondary" type="submit">Swap</button>
+          </div>
+        </form>
+      {% endif %}
+
+      <div id="flag-form-{{ p.prescribed_id }}" class="extras-flag">
+        <form class="extras-form"
+              hx-post="{{ url_for('flag_exercise', session_id=sess.id, prescribed_id=p.prescribed_id) }}"
+              hx-target="#flag-form-{{ p.prescribed_id }}"
+              hx-swap="innerHTML">
+          <label class="extras-label" for="flag-{{ p.prescribed_id }}">
+            Flag discomfort or issue
+            <span class="muted small">— logs an open note tagged with this exercise.</span>
+          </label>
+          <div class="extras-row">
+            <input id="flag-{{ p.prescribed_id }}" name="item" type="text"
+                   placeholder="e.g. right shoulder twinge on the eccentric"
+                   maxlength="240" autocomplete="off" required>
+            <button class="btn btn-secondary" type="submit">Flag</button>
+          </div>
+        </form>
+      </div>
+    </details>
   {% endif %}
 </section>

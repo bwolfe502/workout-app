@@ -188,6 +188,20 @@ def partial_sessions(
     ))
 
 
+def all_exercises(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Every exercise, alphabetised. Powers the in-session 'Swap exercise'
+    dropdown on the live view. Includes notation/is_bodyweight so the form
+    can hint at unit semantics in the option label.
+    """
+    return list(conn.execute(
+        """
+        SELECT id, name, notation, is_bodyweight, primary_muscles
+          FROM exercises
+         ORDER BY name COLLATE NOCASE
+        """
+    ))
+
+
 def open_issues(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return list(conn.execute(
         """

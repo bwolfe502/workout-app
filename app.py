@@ -130,6 +130,7 @@ def create_app(config: dict | None = None) -> Flask:
         last_time = (
             queries.previous_sets_by_exercise(conn, session_id) if is_live else {}
         )
+        exercises_for_swap = queries.all_exercises(conn) if is_live else []
         unaddressed_count = sum(
             1 for p in prescribed if not sets_by_prescribed.get(p["prescribed_id"])
         )
@@ -139,6 +140,7 @@ def create_app(config: dict | None = None) -> Flask:
             prescribed=prescribed,
             sets_by_prescribed=sets_by_prescribed,
             last_time=last_time,
+            exercises_for_swap=exercises_for_swap,
             unaddressed_count=unaddressed_count,
         )
 
@@ -161,6 +163,56 @@ def create_app(config: dict | None = None) -> Flask:
         return _swap_after_mutation(
             session_id, prescribed_id, lambda c, p: _do_marker(c, p, "deferred")
         )
+
+    @app.post("/session/<int:session_id>/exercise/<int:prescribed_id>/swap")
+    def swap_exercise(session_id: int, prescribed_id: int):
+        """Repoint a prescribed row to a different exercise. Mid-session
+        ad-hoc substitution (equipment taken, joints feeling off, etc.).
+        Keeps sets_planned / rep range / weight / RIR target unchanged so
+        the user's plan is preserved; they can still override on the next
+        set log. Does NOT create a revisions entry — those are reserved
+        for explicit program changes through the Claude review loop."""
+        new_exercise_id = _to_int(request.form.get("exercise_id"))
+        if new_exercise_id is None:
+            abort(400)
+        return _swap_after_mutation(
+            session_id, prescribed_id,
+            lambda c, p: c.execute(
+                "UPDATE prescribed SET exercise_id = ? WHERE id = ?",
+                (new_exercise_id, p),
+            ),
+        )
+
+    @app.post("/session/<int:session_id>/exercise/<int:prescribed_id>/flag")
+    def flag_exercise(session_id: int, prescribed_id: int):
+        """Quick-create an issue from inside the live view. Returns a tiny
+        confirmation partial that htmx swaps in over the inline form, so
+        the user stays on the session page instead of being kicked out to
+        /issues mid-workout."""
+        conn = db.get_conn()
+        prescribed = _prescribed_by_id(conn, prescribed_id)
+        if prescribed is None or prescribed["session_id"] != session_id:
+            abort(404)
+        ex_row = conn.execute(
+            "SELECT name FROM exercises WHERE id = ?",
+            (prescribed["exercise_id"],),
+        ).fetchone()
+        ex_name = ex_row["name"] if ex_row else "exercise"
+        item_text = (request.form.get("item") or "").strip()
+        if not item_text:
+            return ('<p class="flag-confirm muted small">'
+                    'Type something first, then tap Flag.</p>'), 200
+        full_item = f"{ex_name} — {item_text}"
+        status = (request.form.get("status") or "yellow").strip()
+        conn.execute(
+            "INSERT INTO issues (opened_at, item, status) VALUES (?, ?, ?)",
+            (date.today().isoformat(), full_item, status),
+        )
+        conn.commit()
+        return (
+            '<p class="flag-confirm">'
+            'Issue logged. <a href="/issues">View notes →</a></p>'
+        ), 200
 
     @app.post("/session/<int:session_id>/finish")
     def finish_session(session_id: int):
@@ -368,10 +420,14 @@ def create_app(config: dict | None = None) -> Flask:
     @app.get("/issues")
     def issues_list():
         conn = db.get_conn()
+        # Don't .strip() — deep-links from the live view often end with
+        # ': ' on purpose so the user can start typing right after the colon.
+        prefill_item = request.args.get("item") or ""
         return render_template(
             "issues.html",
             open_issues=queries.open_issues(conn),
             closed_issues=queries.closed_issues(conn),
+            prefill_item=prefill_item,
         )
 
     @app.post("/issues")
@@ -548,7 +604,10 @@ def _swap_after_mutation(session_id, prescribed_id, action, *, just_logged=False
         )
     action(conn, prescribed_id)
     conn.commit()
-    # Re-fetch + re-render the exercise block partial.
+    # Re-fetch + re-render the exercise block partial. We re-pass last_time
+    # and exercises_for_swap so the swapped-in block has the same context as
+    # the original full-page render — otherwise the "Last time" line and the
+    # swap dropdown disappear after every htmx interaction.
     refreshed = _prescribed_for_block(conn, prescribed_id)
     sets_by_prescribed = queries.sets_for_session(conn, session_id)
     sess = queries.session_by_id(conn, session_id)
@@ -557,6 +616,8 @@ def _swap_after_mutation(session_id, prescribed_id, action, *, just_logged=False
         p=refreshed,
         sess=sess,
         sets_by_prescribed=sets_by_prescribed,
+        last_time=queries.previous_sets_by_exercise(conn, session_id),
+        exercises_for_swap=queries.all_exercises(conn),
         just_logged=just_logged,
     )
 

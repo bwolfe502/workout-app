@@ -105,6 +105,18 @@ def test_close_issue_404_on_missing(client) -> None:
     assert r.status_code == 404
 
 
+def test_issues_prefill_query_string(client) -> None:
+    """`/issues?item=…` opens the create form with the value prefilled, so
+    a 'Flag from this exercise' deep-link from the live view drops the
+    user straight onto a partially-typed form instead of an empty one."""
+    r = client.get("/issues?item=Incline%20DB%20Bench%3A%20")
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'value="Incline DB Bench: "' in body
+    # Form is open (details has the open attr) when prefilled.
+    assert '<details class="card" open>' in body
+
+
 def test_closed_section_shows_closed_issue(client, app_and_db) -> None:
     conn = _open_conn(app_and_db[1])
     issue_id = conn.execute(
